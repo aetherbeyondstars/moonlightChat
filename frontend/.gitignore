@@ -1,0 +1,11 @@
+# Frontend & Electron ignores
+node_modules/
+dist/
+dist-electron/
+.env
+.env.local
+.env.*.local
+!env.example
+!.env.example
+*.log
+certs/

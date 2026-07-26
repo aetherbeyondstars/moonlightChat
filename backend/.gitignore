@@ -1,0 +1,13 @@
+# Backend ignores
+node_modules/
+.env
+.env.local
+!env.example
+!.env.example
+dev.db
+dev.db-journal
+*.db
+*.log
+uploads/*
+!uploads/.gitkeep
+certs/

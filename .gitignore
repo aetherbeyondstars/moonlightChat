@@ -1,0 +1,77 @@
+# ============================================================================
+# .gitignore - Moonlight (Monorepo fullstack: Frontend + Backend + Electron)
+# ============================================================================
+
+# 1. Dependencias
+node_modules/
+**/node_modules/
+
+# 2. Variables de entorno y credenciales confidenciales
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+!**/.env.example
+
+# 3. Certificados SSL y claves privadas
+**/certs/*.pem
+**/certs/*.key
+**/certs/*.crt
+**/certs/*.csr
+backend/certs/
+frontend/certs/
+
+# 4. Archivos de compilación y distribución
+dist/
+**/dist/
+**/dist-electron/
+/out/
+**/out/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.asar
+
+# 5. Base de datos SQLite y contenido subido por usuarios
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# 6. Archivos de registro y temporales
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.tmp/
+**/tmp/
+
+# 7. Sistema operativo y atajos
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.lnk
+
+# 8. Archivos de editores e IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 9. Carpetas internas del asistente / sistema
+.gemini/
+.antigravity/
+.system_generated/

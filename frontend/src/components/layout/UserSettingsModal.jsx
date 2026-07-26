@@ -1,0 +1,1902 @@
+// ============================================================================
+// UserSettingsModal.jsx
+// Modal de ajustes de usuario estilo Discord: sidebar de secciones a la
+// izquierda (con subapartados anidados) y contenido a la derecha mostrado
+// como filas "etiqueta — valor — botón Editar".
+// ============================================================================
+import { useState, useRef, useEffect } from 'react';
+import {
+  X, LogOut, Pencil, User, Shield, Bell, Palette,
+  Accessibility, Mic, Globe, HelpCircle, ZoomIn, ZoomOut,
+  Mail, Phone, Lock, Check, Monitor, Smile
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/form-elements';
+import { UserAvatar } from '@/components/layout/UserAvatar';
+import { useAuth } from '@/store/AuthContext';
+import { displayNameOf } from '@/lib/userDisplay';
+import { setAudioOutputId } from '@/lib/audioOutput';
+import { resolveUploadUrl } from '@/lib/api';
+
+// ── Temas de color de acento disponibles ─────────────────────────────────────
+export const THEME_COLORS = [
+  { id: 'rojo',        label: 'Rojo',         hsl: '359 82% 60%' },
+  { id: 'moonlight',   label: 'Azul Discord', hsl: '235 86% 65%' },
+  { id: 'amarillo',    label: 'Amarillo',     hsl: '48 89% 55%' },
+  { id: 'verde',       label: 'Verde',        hsl: '142 71% 45%' },
+  { id: 'gris-ceniza', label: 'Gris Ceniza',  hsl: '0 0% 42%' },
+];
+
+export const COUNTRIES = [
+  { code: 'AF', flag: '🇦🇫', prefix: '+93', name: 'Afganistán' },
+  { code: 'AL', flag: '🇦🇱', prefix: '+355', name: 'Albania' },
+  { code: 'DE', flag: '🇩🇪', prefix: '+49', name: 'Alemania' },
+  { code: 'AD', flag: '🇦🇩', prefix: '+376', name: 'Andorra' },
+  { code: 'AO', flag: '🇦🇴', prefix: '+244', name: 'Angola' },
+  { code: 'AI', flag: '🇦🇮', prefix: '+1264', name: 'Anguila' },
+  { code: 'AQ', flag: '🇦🇶', prefix: '+672', name: 'Antártida' },
+  { code: 'AG', flag: '🇦🇬', prefix: '+1268', name: 'Antigua y Barbuda' },
+  { code: 'SA', flag: '🇸🇦', prefix: '+966', name: 'Arabia Saudita' },
+  { code: 'DZ', flag: '🇩🇿', prefix: '+213', name: 'Argelia' },
+  { code: 'AR', flag: '🇦🇷', prefix: '+54', name: 'Argentina' },
+  { code: 'AM', flag: '🇦🇲', prefix: '+374', name: 'Armenia' },
+  { code: 'AW', flag: '🇦🇼', prefix: '+297', name: 'Aruba' },
+  { code: 'AU', flag: '🇦🇺', prefix: '+61', name: 'Australia' },
+  { code: 'AT', flag: '🇦🇹', prefix: '+43', name: 'Austria' },
+  { code: 'AZ', flag: '🇦🇿', prefix: '+994', name: 'Azerbaiyán' },
+  { code: 'BS', flag: '🇧🇸', prefix: '+1242', name: 'Bahamas' },
+  { code: 'BD', flag: '🇧🇩', prefix: '+880', name: 'Bangladés' },
+  { code: 'BB', flag: '🇧🇧', prefix: '+1246', name: 'Barbados' },
+  { code: 'BH', flag: '🇧🇭', prefix: '+973', name: 'Baréin' },
+  { code: 'BE', flag: '🇧🇪', prefix: '+32', name: 'Bélgica' },
+  { code: 'BZ', flag: '🇧🇿', prefix: '+501', name: 'Belice' },
+  { code: 'BJ', flag: '🇧🇯', prefix: '+229', name: 'Benín' },
+  { code: 'BM', flag: '🇧🇲', prefix: '+1441', name: 'Bermudas' },
+  { code: 'BY', flag: '🇧🇾', prefix: '+375', name: 'Bielorrusia' },
+  { code: 'MM', flag: '🇲🇲', prefix: '+95', name: 'Myanmar (Birmania)' },
+  { code: 'BO', flag: '🇧🇴', prefix: '+591', name: 'Bolivia' },
+  { code: 'BA', flag: '🇧🇦', prefix: '+387', name: 'Bosnia y Herzegovina' },
+  { code: 'BW', flag: '🇧🇼', prefix: '+267', name: 'Botsuana' },
+  { code: 'BR', flag: '🇧🇷', prefix: '+55', name: 'Brasil' },
+  { code: 'BN', flag: '🇧🇳', prefix: '+673', name: 'Brunéi' },
+  { code: 'BG', flag: '🇧🇬', prefix: '+359', name: 'Bulgaria' },
+  { code: 'BF', flag: '🇧🇫', prefix: '+226', name: 'Burkina Faso' },
+  { code: 'BI', flag: '🇧🇮', prefix: '+257', name: 'Burundi' },
+  { code: 'BT', flag: '🇧🇹', prefix: '+975', name: 'Bután' },
+  { code: 'CV', flag: '🇨🇻', prefix: '+238', name: 'Cabo Verde' },
+  { code: 'KH', flag: '🇰🇭', prefix: '+855', name: 'Camboya' },
+  { code: 'CM', flag: '🇨🇲', prefix: '+237', name: 'Camerún' },
+  { code: 'CA', flag: '🇨🇦', prefix: '+1', name: 'Canadá' },
+  { code: 'QA', flag: '🇶🇦', prefix: '+974', name: 'Catar' },
+  { code: 'TD', flag: '🇹🇩', prefix: '+235', name: 'Chad' },
+  { code: 'CL', flag: '🇨🇱', prefix: '+56', name: 'Chile' },
+  { code: 'CN', flag: '🇨🇳', prefix: '+86', name: 'China' },
+  { code: 'CY', flag: '🇨🇾', prefix: '+357', name: 'Chipre' },
+  { code: 'VA', flag: '🇻🇦', prefix: '+3906', name: 'Ciudad del Vaticano' },
+  { code: 'CO', flag: '🇨🇴', prefix: '+57', name: 'Colombia' },
+  { code: 'KM', flag: '🇰🇲', prefix: '+269', name: 'Comoras' },
+  { code: 'KP', flag: '🇰🇵', prefix: '+850', name: 'Corea del Norte' },
+  { code: 'KR', flag: '🇰🇷', prefix: '+82', name: 'Corea del Sur' },
+  { code: 'CI', flag: '🇨🇮', prefix: '+225', name: 'Costa de Marfil' },
+  { code: 'CR', flag: '🇨🇷', prefix: '+506', name: 'Costa Rica' },
+  { code: 'HR', flag: '🇭🇷', prefix: '+385', name: 'Croacia' },
+  { code: 'CU', flag: '🇨🇺', prefix: '+53', name: 'Cuba' },
+  { code: 'CW', flag: '🇨🇼', prefix: '+599', name: 'Curazao' },
+  { code: 'DK', flag: '🇩🇰', prefix: '+45', name: 'Dinamarca' },
+  { code: 'DM', flag: '🇩🇲', prefix: '+1767', name: 'Dominica' },
+  { code: 'EC', flag: '🇪🇨', prefix: '+593', name: 'Ecuador' },
+  { code: 'EG', flag: '🇪🇬', prefix: '+20', name: 'Egipto' },
+  { code: 'SV', flag: '🇸🇻', prefix: '+503', name: 'El Salvador' },
+  { code: 'AE', flag: '🇦🇪', prefix: '+971', name: 'Emiratos Árabes Unidos' },
+  { code: 'ER', flag: '🇪🇷', prefix: '+291', name: 'Eritrea' },
+  { code: 'SK', flag: '🇸🇰', prefix: '+421', name: 'Eslovaquia' },
+  { code: 'SI', flag: '🇸🇮', prefix: '+386', name: 'Eslovenia' },
+  { code: 'ES', flag: '🇪🇸', prefix: '+34', name: 'España' },
+  { code: 'US', flag: '🇺🇸', prefix: '+1', name: 'Estados Unidos' },
+  { code: 'EE', flag: '🇪🇪', prefix: '+372', name: 'Estonia' },
+  { code: 'SZ', flag: '🇸🇿', prefix: '+268', name: 'Esuatinii' },
+  { code: 'ET', flag: '🇪🇹', prefix: '+251', name: 'Etiopía' },
+  { code: 'PH', flag: '🇵🇭', prefix: '+63', name: 'Filipinas' },
+  { code: 'FI', flag: '🇫🇮', prefix: '+358', name: 'Finlandia' },
+  { code: 'FJ', flag: '🇫🇯', prefix: '+679', name: 'Fiyi' },
+  { code: 'FR', flag: '🇫🇷', prefix: '+33', name: 'Francia' },
+  { code: 'GA', flag: '🇬🇦', prefix: '+241', name: 'Gabón' },
+  { code: 'GM', flag: '🇬🇲', prefix: '+220', name: 'Gambia' },
+  { code: 'GE', flag: '🇬🇪', prefix: '+995', name: 'Georgia' },
+  { code: 'GH', flag: '🇬🇭', prefix: '+233', name: 'Ghana' },
+  { code: 'GI', flag: '🇬🇮', prefix: '+350', name: 'Gibraltar' },
+  { code: 'GD', flag: '🇬🇩', prefix: '+1473', name: 'Granada' },
+  { code: 'GR', flag: '🇬🇷', prefix: '+30', name: 'Grecia' },
+  { code: 'GL', flag: '🇬🇱', prefix: '+299', name: 'Groenlandia' },
+  { code: 'GP', flag: '🇬🇵', prefix: '+590', name: 'Guadalupe' },
+  { code: 'GU', flag: '🇬🇺', prefix: '+1671', name: 'Guam' },
+  { code: 'GT', flag: '🇬🇹', prefix: '+502', name: 'Guatemala' },
+  { code: 'GF', flag: '🇬🇫', prefix: '+594', name: 'Guayana Francesa' },
+  { code: 'GG', flag: '🇬🇬', prefix: '+44', name: 'Guernesey' },
+  { code: 'GN', flag: '🇬🇳', prefix: '+224', name: 'Guinea' },
+  { code: 'GW', flag: '🇬🇼', prefix: '+245', name: 'Guinea-Bisáu' },
+  { code: 'GQ', flag: '🇬🇶', prefix: '+240', name: 'Guinea Ecuatorial' },
+  { code: 'GY', flag: '🇬🇾', prefix: '+592', name: 'Guyana' },
+  { code: 'HT', flag: '🇭🇹', prefix: '+509', name: 'Haití' },
+  { code: 'HN', flag: '🇭🇳', prefix: '+504', name: 'Honduras' },
+  { code: 'HK', flag: '🇭🇰', prefix: '+852', name: 'Hong Kong' },
+  { code: 'HU', flag: '🇭🇺', prefix: '+36', name: 'Hungría' },
+  { code: 'IN', flag: '🇮🇳', prefix: '+91', name: 'India' },
+  { code: 'ID', flag: '🇮🇩', prefix: '+62', name: 'Indonesia' },
+  { code: 'IQ', flag: '🇮🇶', prefix: '+964', name: 'Irak' },
+  { code: 'IR', flag: '🇮🇷', prefix: '+98', name: 'Irán' },
+  { code: 'IE', flag: '🇮🇪', prefix: '+353', name: 'Irlanda' },
+  { code: 'IM', flag: '🇮🇲', prefix: '+44', name: 'Isla de Man' },
+  { code: 'IS', flag: '🇮🇸', prefix: '+354', name: 'Islandia' },
+  { code: 'IL', flag: '🇮🇱', prefix: '+972', name: 'Israel' },
+  { code: 'IT', flag: '🇮🇹', prefix: '+39', name: 'Italia' },
+  { code: 'JM', flag: '🇯🇲', prefix: '+1876', name: 'Jamaica' },
+  { code: 'JP', flag: '🇯🇵', prefix: '+81', name: 'Japón' },
+  { code: 'JE', flag: '🇯🇪', prefix: '+44', name: 'Jersey' },
+  { code: 'JO', flag: '🇯🇴', prefix: '+962', name: 'Jordania' },
+  { code: 'KZ', flag: '🇰🇿', prefix: '+7', name: 'Kazajistán' },
+  { code: 'KE', flag: '🇰🇪', prefix: '+254', name: 'Kenia' },
+  { code: 'KG', flag: '🇰🇬', prefix: '+996', name: 'Kirguistán' },
+  { code: 'KI', flag: '🇰🇮', prefix: '+686', name: 'Kiribati' },
+  { code: 'KW', flag: '🇰🇼', prefix: '+965', name: 'Kuwait' },
+  { code: 'LA', flag: '🇱🇦', prefix: '+856', name: 'Laos' },
+  { code: 'LS', flag: '🇱🇸', prefix: '+266', name: 'Lesoto' },
+  { code: 'LV', flag: '🇱🇻', prefix: '+371', name: 'Letonia' },
+  { code: 'LB', flag: '🇱🇧', prefix: '+961', name: 'Líbano' },
+  { code: 'LR', flag: '🇱🇷', prefix: '+231', name: 'Liberia' },
+  { code: 'LY', flag: '🇱🇾', prefix: '+218', name: 'Libia' },
+  { code: 'LI', flag: '🇱🇮', prefix: '+423', name: 'Liechtenstein' },
+  { code: 'LT', flag: '🇱🇹', prefix: '+370', name: 'Lituania' },
+  { code: 'LU', flag: '🇱🇺', prefix: '+352', name: 'Luxemburgo' },
+  { code: 'MO', flag: '🇲🇴', prefix: '+853', name: 'Macao' },
+  { code: 'MK', flag: '🇲🇰', prefix: '+389', name: 'Macedonia del Norte' },
+  { code: 'MG', flag: '🇲🇬', prefix: '+261', name: 'Madagascar' },
+  { code: 'MY', flag: '🇲🇾', prefix: '+60', name: 'Malasia' },
+  { code: 'MW', flag: '🇲🇼', prefix: '+265', name: 'Malaui' },
+  { code: 'MV', flag: '🇲🇻', prefix: '+960', name: 'Maldivas' },
+  { code: 'ML', flag: '🇲🇱', prefix: '+223', name: 'Malí' },
+  { code: 'MT', flag: '🇲🇹', prefix: '+356', name: 'Malta' },
+  { code: 'MA', flag: '🇲🇦', prefix: '+212', name: 'Marruecos' },
+  { code: 'MQ', flag: '🇲🇶', prefix: '+596', name: 'Martinica' },
+  { code: 'MU', flag: '🇲🇺', prefix: '+230', name: 'Mauricio' },
+  { code: 'MR', flag: '🇲🇷', prefix: '+222', name: 'Mauritania' },
+  { code: 'YT', flag: '🇾🇹', prefix: '+262', name: 'Mayotte' },
+  { code: 'MX', flag: '🇲🇽', prefix: '+52', name: 'México' },
+  { code: 'FM', flag: '🇫🇲', prefix: '+691', name: 'Micronesia' },
+  { code: 'MD', flag: '🇲🇩', prefix: '+373', name: 'Moldavia' },
+  { code: 'MC', flag: '🇲🇨', prefix: '+377', name: 'Mónaco' },
+  { code: 'MN', flag: '🇲🇳', prefix: '+976', name: 'Mongolia' },
+  { code: 'ME', flag: '🇲🇪', prefix: '+382', name: 'Montenegro' },
+  { code: 'MS', flag: '🇲🇸', prefix: '+1664', name: 'Montserrat' },
+  { code: 'MZ', flag: '🇲🇿', prefix: '+258', name: 'Mozambique' },
+  { code: 'NA', flag: '🇳🇦', prefix: '+264', name: 'Namibia' },
+  { code: 'NR', flag: '🇳🇷', prefix: '+674', name: 'Nauru' },
+  { code: 'NP', flag: '🇳🇵', prefix: '+977', name: 'Nepal' },
+  { code: 'NI', flag: '🇳🇮', prefix: '+505', name: 'Nicaragua' },
+  { code: 'NE', flag: '🇳🇪', prefix: '+227', name: 'Níger' },
+  { code: 'NG', flag: '🇳🇬', prefix: '+234', name: 'Nigeria' },
+  { code: 'NU', flag: '🇳🇺', prefix: '+683', name: 'Niue' },
+  { code: 'NO', flag: '🇳🇴', prefix: '+47', name: 'Noruega' },
+  { code: 'NC', flag: '🇳🇨', prefix: '+687', name: 'Nueva Caledonia' },
+  { code: 'NZ', flag: '🇳🇿', prefix: '+64', name: 'Nueva Zelanda' },
+  { code: 'OM', flag: '🇴🇲', prefix: '+968', name: 'Omán' },
+  { code: 'NL', flag: '🇳🇱', prefix: '+31', name: 'Países Bajos' },
+  { code: 'PK', flag: '🇵🇰', prefix: '+92', name: 'Pakistán' },
+  { code: 'PW', flag: '🇵🇼', prefix: '+680', name: 'Palaos' },
+  { code: 'PA', flag: '🇵🇦', prefix: '+507', name: 'Panamá' },
+  { code: 'PG', flag: '🇵🇬', prefix: '+675', name: 'Papúa Nueva Guinea' },
+  { code: 'PY', flag: '🇵🇾', prefix: '+595', name: 'Paraguay' },
+  { code: 'PE', flag: '🇵🇪', prefix: '+51', name: 'Perú' },
+  { code: 'PN', flag: '🇵🇳', prefix: '+64', name: 'Islas Pitcairn' },
+  { code: 'PL', flag: '🇵🇱', prefix: '+48', name: 'Polonia' },
+  { code: 'PT', flag: '🇵🇹', prefix: '+351', name: 'Portugal' },
+  { code: 'PR', flag: '🇵🇷', prefix: '+1', name: 'Puerto Rico' },
+  { code: 'GB', flag: '🇬🇧', prefix: '+44', name: 'Reino Unido' },
+  { code: 'CF', flag: '🇨🇫', prefix: '+236', name: 'República Centroafricana' },
+  { code: 'CZ', flag: '🇨🇿', prefix: '+420', name: 'República Checa' },
+  { code: 'CG', flag: '🇨🇬', prefix: '+242', name: 'República del Congo' },
+  { code: 'CD', flag: '🇨🇩', prefix: '+243', name: 'República Democrática del Congo' },
+  { code: 'DO', flag: '🇩🇴', prefix: '+1809', name: 'República Dominicana' },
+  { code: 'RE', flag: '🇷🇪', prefix: '+262', name: 'Reunión' },
+  { code: 'RO', flag: '🇷🇴', prefix: '+40', name: 'Rumania' },
+  { code: 'RU', flag: '🇷🇺', prefix: '+7', name: 'Rusia' },
+  { code: 'RW', flag: '🇷🇼', prefix: '+250', name: 'Ruanda' },
+  { code: 'EH', flag: '🇪🇭', prefix: '+212', name: 'Sahara Occidental' },
+  { code: 'WS', flag: '🇼🇸', prefix: '+685', name: 'Samoa' },
+  { code: 'AS', flag: '🇦🇸', prefix: '+1684', name: 'Samoa Americana' },
+  { code: 'BL', flag: '🇧🇱', prefix: '+590', name: 'San Bartolomé' },
+  { code: 'KN', flag: '🇰🇳', prefix: '+1869', name: 'San Cristóbal y Nieves' },
+  { code: 'SM', flag: '🇸🇲', prefix: '+378', name: 'San Marino' },
+  { code: 'MF', flag: '🇲🇫', prefix: '+590', name: 'San Martín' },
+  { code: 'PM', flag: '🇵🇲', prefix: '+508', name: 'San Pedro y Miquelón' },
+  { code: 'VC', flag: '🇻🇨', prefix: '+1784', name: 'San Vicente y las Granadinas' },
+  { code: 'SH', flag: '🇸🇭', prefix: '+290', name: 'Santa Elena' },
+  { code: 'LC', flag: '🇱🇨', prefix: '+1758', name: 'Santa Lucía' },
+  { code: 'ST', flag: '🇸🇹', prefix: '+239', name: 'Santo Tomé y Príncipe' },
+  { code: 'SN', flag: '🇸🇳', prefix: '+221', name: 'Senegal' },
+  { code: 'RS', flag: '🇷🇸', prefix: '+381', name: 'Serbia' },
+  { code: 'SC', flag: '🇸🇨', prefix: '+248', name: 'Seychelles' },
+  { code: 'SL', flag: '🇸🇱', prefix: '+232', name: 'Sierra Leona' },
+  { code: 'SG', flag: '🇸🇬', prefix: '+65', name: 'Singapur' },
+  { code: 'SX', flag: '🇸🇽', prefix: '+1721', name: 'Sint Maarten' },
+  { code: 'SY', flag: '🇸🇾', prefix: '+963', name: 'Siria' },
+  { code: 'SO', flag: '🇸🇴', prefix: '+252', name: 'Somalia' },
+  { code: 'LK', flag: '🇱🇰', prefix: '+94', name: 'Sri Lanka' },
+  { code: 'ZA', flag: '🇿🇦', prefix: '+27', name: 'Sudáfrica' },
+  { code: 'SD', flag: '🇸🇩', prefix: '+249', name: 'Sudán' },
+  { code: 'SS', flag: '🇸🇸', prefix: '+211', name: 'Sudán del Sur' },
+  { code: 'SE', flag: '🇸🇪', prefix: '+46', name: 'Suecia' },
+  { code: 'CH', flag: '🇨🇭', prefix: '+41', name: 'Suiza' },
+  { code: 'SR', flag: '🇸🇷', prefix: '+597', name: 'Surinam' },
+  { code: 'TH', flag: '🇹🇭', prefix: '+66', name: 'Tailandia' },
+  { code: 'TW', flag: '🇹🇼', prefix: '+886', name: 'Taiwán' },
+  { code: 'TZ', flag: '🇹🇿', prefix: '+255', name: 'Tanzania' },
+  { code: 'TJ', flag: '🇹🇯', prefix: '+992', name: 'Tayikistán' },
+  { code: 'TL', flag: '🇹🇱', prefix: '+670', name: 'Timor Oriental' },
+  { code: 'TG', flag: '🇹🇬', prefix: '+228', name: 'Togo' },
+  { code: 'TK', flag: '🇹🇰', prefix: '+690', name: 'Tokelau' },
+  { code: 'TO', flag: '🇹🇴', prefix: '+676', name: 'Tonga' },
+  { code: 'TT', flag: '🇹🇹', prefix: '+1868', name: 'Trinidad y Tobago' },
+  { code: 'TN', flag: '🇹🇳', prefix: '+216', name: 'Túnez' },
+  { code: 'TC', flag: '🇹🇨', prefix: '+1649', name: 'Islas Turcas y Caicos' },
+  { code: 'TM', flag: '🇹🇲', prefix: '+993', name: 'Turkmenistán' },
+  { code: 'TR', flag: '🇹🇷', prefix: '+90', name: 'Turquía' },
+  { code: 'TV', flag: '🇹🇻', prefix: '+688', name: 'Tuvalu' },
+  { code: 'UA', flag: '🇺🇦', prefix: '+380', name: 'Ucrania' },
+  { code: 'UG', flag: '🇺🇬', prefix: '+256', name: 'Uganda' },
+  { code: 'UY', flag: '🇺🇾', prefix: '+598', name: 'Uruguay' },
+  { code: 'UZ', flag: '🇺🇿', prefix: '+998', name: 'Uzbekistán' },
+  { code: 'VU', flag: '🇻🇺', prefix: '+678', name: 'Vanuatu' },
+  { code: 'VE', flag: '🇻🇪', prefix: '+58', name: 'Venezuela' },
+  { code: 'VN', flag: '🇻🇳', prefix: '+84', name: 'Vietnam' },
+  { code: 'WF', flag: '🇼🇫', prefix: '+681', name: 'Wallis y Futuna' },
+  { code: 'YE', flag: '🇾🇪', prefix: '+967', name: 'Yemen' },
+  { code: 'DJ', flag: '🇩🇯', prefix: '+253', name: 'Yibuti' },
+  { code: 'ZM', flag: '🇿🇲', prefix: '+260', name: 'Zambia' },
+  { code: 'ZW', flag: '🇿🇼', prefix: '+263', name: 'Zimbabue' },
+];
+ 
+// ── Estructura de secciones con subapartados ─────────────────────────────────
+const SECTIONS = [
+  {
+    id: 'cuenta', label: 'Cuenta', icon: User, subitems: [
+      { id: 'cuenta-info', label: 'Información de cuenta' },
+      { id: 'cuenta-seguridad', label: 'Contraseña y seguridad' },
+    ],
+  },
+  {
+    id: 'privacidad', label: 'Privacidad y seguridad', icon: Shield, subitems: [
+      { id: 'privacidad-mensajes', label: 'Mensajes privados' },
+      { id: 'privacidad-actividad', label: 'Actividad y estado' },
+      { id: 'privacidad-datos', label: 'Datos y permisos' },
+    ],
+  },
+  {
+    id: 'notificaciones', label: 'Notificaciones', icon: Bell, subitems: [
+      { id: 'notif-mensajes', label: 'Mensajes' },
+      { id: 'notif-servidores', label: 'Servidores' },
+      { id: 'notif-sonidos', label: 'Sonidos' },
+    ],
+  },
+  {
+    id: 'apariencia', label: 'Apariencia', icon: Palette, subitems: [
+      { id: 'apariencia-tema', label: 'Tema' },
+      { id: 'apariencia-chat', label: 'Chat' },
+    ],
+  },
+  {
+    id: 'accesibilidad', label: 'Accesibilidad', icon: Accessibility, subitems: [
+      { id: 'accesibilidad-visual', label: 'Visual' },
+      { id: 'accesibilidad-mensajes', label: 'Mensajes' },
+    ],
+  },
+  {
+    id: 'voz', label: 'Voz y video', icon: Mic, subitems: [
+      { id: 'voz-entrada', label: 'Entrada de voz' },
+      { id: 'voz-video', label: 'Video' },
+    ],
+  },
+  {
+    id: 'idioma', label: 'Idioma y hora', icon: Globe, subitems: [
+      { id: 'idioma-app', label: 'Idioma de la app' },
+      { id: 'idioma-hora', label: 'Formato de hora' },
+    ],
+  },
+  {
+    id: 'ayuda', label: 'Ayuda', icon: HelpCircle, subitems: [
+      { id: 'ayuda-soporte', label: 'Soporte' },
+      { id: 'ayuda-acerca', label: 'Acerca de' },
+    ],
+  },
+];
+
+const AVATAR_COLORS = [
+  // Fila 1: Cromáticos 1-6
+  '#C93B3E', // Rojo (Suave)
+  '#C83D15', // Rojo anaranjado (Suave)
+  '#C57305', // Naranja (Suave)
+  '#C49206', // Amarillo anaranjado (Suave)
+  '#C8AC25', // Amarillo (Suave)
+  '#72A22A', // Amarillo verdoso (Suave)
+  // Fila 2: Cromáticos 7-12
+  '#1B7F47', // Verde (Suave)
+  '#008C9E', // Azul verdoso (Suave)
+  '#1A53D4', // Azul (Suave)
+  '#454FBF', // Azul morado (Suave)
+  '#7B3DB3', // Morado (Suave)
+  '#C22B75', // Rojo morado (Suave)
+  // Fila 3: Grises lunares (Negro a Gris Claro/Medio-Blanco)
+  '#1E1E1E', // Gris muy oscuro (evita fundirse con el fondo)
+  '#3A3A3A', // Gris Carbón oscuro
+  '#565656', // Gris Cráter oscuro
+  '#727272', // Gris Medio
+  '#909090', // Gris Polvo
+  '#B0B0B0', // Gris Plata claro ("medio blanco medio negro")
+];
+
+// ── Fila reutilizable: etiqueta — valor — botón Editar ───────────────────────
+function InfoRow({ label, value, onEdit, editLabel = 'Editar', disabled, icon: Icon }) {
+  return (
+    <div className="flex items-center justify-between py-3.5 gap-4 group">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {Icon && (
+          <div className="shrink-0 h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center">
+            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">{label}</p>
+          <p className="text-sm text-foreground/90 truncate">{value}</p>
+        </div>
+      </div>
+      {onEdit && (
+        <button
+          onClick={disabled ? undefined : onEdit}
+          disabled={disabled}
+          title={disabled ? 'Próximamente' : editLabel}
+          className={cn(
+            'shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-150',
+            disabled
+              ? 'text-muted-foreground/25 cursor-not-allowed'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )}
+        >
+          <Pencil className="h-3 w-3" />
+          <span>{editLabel}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SectionBlock({ id, title, children }) {
+  return (
+    <div id={id} className="mb-6 scroll-mt-6">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2.5 px-1">{title}</h3>
+      <div className="rounded-xl bg-card/60 backdrop-blur-sm border border-border/30 px-4 divide-y divide-border/20">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, description, defaultChecked = false }) {
+  const [checked, setChecked] = useState(defaultChecked);
+  return (
+    <div className="flex items-center justify-between gap-4 py-3.5">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground/90">{label}</p>
+        {description && <p className="text-xs text-muted-foreground/70 mt-0.5 leading-relaxed">{description}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={setChecked} />
+    </div>
+  );
+}
+
+// ── Diálogo simple para editar un campo de texto ─────────────────────────────
+function EditFieldDialog({ open, label, initialValue, onClose, onSave, type = 'text' }) {
+  const [value, setValue] = useState(initialValue || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setValue(initialValue || ''); setError(''); }
+  }, [open, initialValue]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(value);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[400px] bg-card border-border/60 text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">{label}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-1">
+          <Input type={type} autoFocus value={value} onChange={(e) => setValue(e.target.value)} />
+          {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Diálogo específico para editar número de teléfono con selector de países ──
+function guessCountryFromLocale() {
+  const lang = navigator.language || '';
+  const parts = lang.split('-');
+  if (parts.length > 1) {
+    const code = parts[1].toUpperCase();
+    const found = COUNTRIES.find((c) => c.code === code);
+    if (found) return found;
+  }
+  const langUpper = parts[0].toUpperCase();
+  if (langUpper === 'ES') return COUNTRIES.find((c) => c.code === 'ES') || COUNTRIES[0];
+  if (langUpper === 'EN') return COUNTRIES.find((c) => c.code === 'US') || COUNTRIES[0];
+  if (langUpper === 'FR') return COUNTRIES.find((c) => c.code === 'FR') || COUNTRIES[0];
+  if (langUpper === 'DE') return COUNTRIES.find((c) => c.code === 'DE') || COUNTRIES[0];
+  return COUNTRIES[0];
+}
+
+function EditPhoneNumberDialog({ open, initialValue, onClose, onSave }) {
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+  const [number, setNumber] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [isOpenDropdown, setIsOpenDropdown] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setError('');
+    setIsOpenDropdown(false);
+    
+    if (initialValue) {
+      const sortedCountries = [...COUNTRIES].sort((a, b) => b.prefix.length - a.prefix.length);
+      const found = sortedCountries.find(c => initialValue.startsWith(c.prefix));
+      if (found) {
+        setSelectedCountry(found);
+        const rest = initialValue.slice(found.prefix.length).trim();
+        setNumber(rest);
+        return;
+      }
+    }
+
+    setNumber('');
+    const defaultVal = guessCountryFromLocale();
+    setSelectedCountry(defaultVal);
+
+    // Intentamos geolocalización por IP
+    fetch('https://ipapi.co/json/')
+      .then(res => {
+        if (res.ok) return res.json();
+      })
+      .then(data => {
+        if (data && data.country_code) {
+          const matched = COUNTRIES.find(c => c.code === data.country_code.toUpperCase());
+          if (matched) {
+            setSelectedCountry(matched);
+          }
+        }
+      })
+      .catch(err => console.log('IP-based country detection failed, using local locale:', err));
+  }, [open, initialValue]);
+
+  if (!open) return null;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const cleanNumber = number.replace(/\s+/g, '');
+      if (cleanNumber && !/^\d+$/.test(cleanNumber)) {
+        throw new Error('El número de teléfono solo debe contener dígitos.');
+      }
+      const fullNumber = cleanNumber ? `${selectedCountry.prefix} ${cleanNumber}` : '';
+      await onSave(fullNumber);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[350px] bg-card border-border/60 text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">Añadir número de teléfono</DialogTitle>
+          <p className="text-xs text-muted-foreground">Selecciona tu país e introduce tu número móvil.</p>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-1.5 relative">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Número de teléfono</label>
+            <div className="flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border/80 px-2 py-1.5 focus-within:border-primary/50 relative">
+              <button
+                type="button"
+                onClick={() => setIsOpenDropdown(!isOpenDropdown)}
+                className="flex items-center gap-1 hover:bg-muted/50 px-1.5 py-0.5 rounded text-sm transition-colors"
+              >
+                <span>{selectedCountry.flag}</span>
+                <span className="text-[10px] text-muted-foreground">▼</span>
+              </button>
+              <div className="h-4 w-px bg-border/85 mx-0.5" />
+              <span className="text-sm text-muted-foreground/80 font-medium select-none">
+                {selectedCountry.prefix}
+              </span>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Número de teléfono"
+                value={number}
+                onChange={(e) => setNumber(e.target.value.replace(/[^\d\s-]/g, ''))}
+                className="flex-1 bg-transparent border-0 outline-none text-sm text-foreground p-0 m-0"
+                disabled={saving}
+              />
+            </div>
+
+            {isOpenDropdown && (
+              <div className="absolute top-[68px] left-0 z-50 w-full max-h-48 overflow-y-auto scrollbar-thin rounded-md border border-border bg-popover p-1 shadow-xl">
+                {COUNTRIES.map((country) => (
+                  <button
+                    key={country.code}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCountry(country);
+                      setIsOpenDropdown(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-xs text-left transition-colors",
+                      country.code === selectedCountry.code
+                        ? 'bg-primary/25 text-foreground font-semibold'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    )}
+                  >
+                    <span className="text-sm">{country.flag}</span>
+                    <span className="font-semibold text-foreground/90">{country.prefix}</span>
+                    <span className="flex-1 truncate text-muted-foreground/80">{country.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Diálogo específico para cambiar la contraseña con confirmación y contraseña actual ──
+function EditPasswordDialog({ open, onClose, onSave }) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setOldPassword(''); setNewPassword(''); setConfirmPassword(''); setError('');
+    }
+  }, [open]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!oldPassword) { setError('Debes introducir tu contraseña actual.'); return; }
+    if (newPassword.length < 6) { setError('La nueva contraseña debe tener al menos 6 caracteres.'); return; }
+    if (newPassword !== confirmPassword) { setError('La nueva contraseña y su confirmación no coinciden.'); return; }
+    setSaving(true); setError('');
+    try {
+      await onSave({ oldPassword, password: newPassword });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Error al cambiar la contraseña.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[420px] bg-card border-border/60 text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">Cambiar contraseña</DialogTitle>
+          <p className="text-xs text-muted-foreground">Introduce tu contraseña actual y la nueva.</p>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Contraseña actual</label>
+            <Input type="password" autoFocus value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} disabled={saving} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Nueva contraseña</label>
+            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={saving} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Confirmar nueva contraseña</label>
+            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={saving} />
+          </div>
+          {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Diálogo para editar el estado personalizado con emoji ────────────────────
+function EditCustomStatusDialog({ open, initialValue, onClose, onSave }) {
+  const [value, setValue] = useState(initialValue || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setValue(initialValue || ''); setError(''); }
+  }, [open, initialValue]);
+
+  const PRESETS = [
+    { emoji: '🚀', text: 'Trabajando' },
+    { emoji: '🎮', text: 'Jugando' },
+    { emoji: '😴', text: 'Descansando' },
+    { emoji: '📚', text: 'Estudiando' },
+    { emoji: '🌟', text: 'Activo' },
+    { emoji: '☕', text: 'Tomando café' },
+  ];
+
+  async function handleSubmit(e) {
+    if (e) e.preventDefault();
+    setSaving(true); setError('');
+    try {
+      await onSave(value);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[380px] bg-card border-border/60 text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">Estado personalizado</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-1">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground font-medium">¿Qué está pasando hoy?</label>
+            <Input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ej: 🚀 Trabajando duro" maxLength={100} />
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground font-medium">Sugerencias rápidas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button key={p.text} type="button" onClick={() => setValue(`${p.emoji} ${p.text}`)}
+                  className="flex items-center gap-1 rounded-lg bg-muted/40 border border-border/60 hover:bg-muted/70 px-2 py-1 text-xs transition-colors">
+                  <span>{p.emoji}</span><span>{p.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            {value && (
+              <button type="button" onClick={() => setValue('')}
+                className="mr-auto text-xs text-destructive hover:underline font-semibold">Borrar estado</button>
+            )}
+            <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Sección: Información de cuenta ───────────────────────────────────────────
+function CuentaInfo({ session, updateProfile, uploadAvatar, uploadBanner }) {
+  const [editField, setEditField] = useState(null); // 'username' | 'displayName' | 'color' | null
+  const [colorOpen, setColorOpen] = useState(false);
+  const [savingColor, setSavingColor] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
+ 
+  const [bannerUrl, setBannerUrl] = useState(() => {
+    // Prioridad: localStorage (upload reciente) > campo del servidor > vacío
+    return localStorage.getItem(`moonlight:banner:${session.user.id}`) || session.user.bannerUrl || '';
+  });
+ 
+  // Estados para el recorte de Banner y Avatar
+  const [cropBannerSrc, setCropBannerSrc] = useState('');
+  const [isBannerCropOpen, setIsBannerCropOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState('');
+  const [isCropOpen, setIsCropOpen] = useState(false);
+ 
+  const handleBannerSelected = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+ 
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropBannerSrc(event.target.result);
+      setIsBannerCropOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+ 
+  const handleBannerCropComplete = async (blob) => {
+    setIsBannerCropOpen(false);
+    try {
+      const file = new File([blob], 'banner.png', { type: 'image/png' });
+      const uploadedUrl = await uploadBanner(file);
+      localStorage.setItem(`moonlight:banner:${session.user.id}`, uploadedUrl);
+      setBannerUrl(uploadedUrl);
+      flashSaved();
+    } catch (err) {
+      console.error('Error al subir el banner recortado:', err);
+    }
+  };
+ 
+  function flashSaved() {
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+  }
+ 
+  async function handleSaveUsername(value) {
+    const normalized = value.toLowerCase().trim();
+    if (!/^[a-z0-9_-]+$/.test(normalized)) {
+      throw new Error('Solo letras minúsculas, números, guiones y guion bajo.');
+    }
+    await updateProfile({ username: normalized });
+    flashSaved();
+  }
+ 
+  async function handleSaveDisplayName(value) {
+    await updateProfile({ displayName: value.trim() || null });
+    flashSaved();
+  }
+ 
+  async function handleSaveCustomStatus(value) {
+    await updateProfile({ customStatus: value.trim() || null });
+    flashSaved();
+  }
+
+  async function handleSaveEmail(value) {
+    const trimmed = value.trim();
+    if (!trimmed.includes('@')) {
+      throw new Error('Introduce un correo electrónico válido.');
+    }
+    await updateProfile({ email: trimmed });
+    flashSaved();
+  }
+
+  async function handleSavePhoneNumber(value) {
+    const trimmed = value.trim() || null;
+    await updateProfile({ phoneNumber: trimmed });
+    flashSaved();
+  }
+
+  async function handleSavePassword({ oldPassword, password }) {
+    await updateProfile({ oldPassword, password });
+    flashSaved();
+  }
+ 
+  async function handleSelectColor(color) {
+    setSavingColor(true);
+    try {
+      await updateProfile({ avatarColor: color });
+      flashSaved();
+    } finally { setSavingColor(false); setColorOpen(false); }
+  }
+ 
+  function handlePhotoSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+ 
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropImageSrc(event.target.result);
+      setIsCropOpen(true);
+    };
+    reader.readAsDataURL(file);
+  }
+ 
+  const handleCropComplete = async (blob) => {
+    setIsCropOpen(false);
+    setUploadingPhoto(true);
+    setUploadError('');
+    try {
+      const file = new File([blob], 'avatar.png', { type: 'image/png' });
+      await uploadAvatar(file);
+      flashSaved();
+    } catch (err) {
+      setUploadError(err.message || 'Error al subir la imagen');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+ 
+  const visibleName = session.user.displayName || session.user.username;
+ 
+  return (
+    <>
+      {/* Toast en esquina inferior */}
+      <div
+        className={cn(
+          'fixed bottom-8 right-8 z-[80] flex items-center gap-2.5 rounded-xl border border-border/40 bg-card/95 backdrop-blur-sm px-4 py-3 shadow-2xl transition-all duration-300',
+          savedToast ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0 pointer-events-none'
+        )}
+      >
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-online/20">
+          <Check className="h-3 w-3 text-online" />
+        </div>
+        <span className="text-sm font-semibold text-foreground">Cambios guardados</span>
+      </div>
+ 
+      {/* Tarjeta de perfil con banner */}
+      <div className="rounded-xl overflow-hidden border border-border/30 mb-6 relative">
+        {/* Banner */}
+        <div
+          className="relative h-40 cursor-pointer group"
+          onClick={() => bannerInputRef.current?.click()}
+          title="Cambiar banner"
+        >
+          {bannerUrl ? (
+            <img src={resolveUploadUrl(bannerUrl)} alt="Banner" className="w-full h-full object-cover" />
+          ) : (
+            <div
+              className="w-full h-full"
+              style={{ background: `linear-gradient(135deg, ${session.user.avatarColor}CC 0%, ${session.user.avatarColor}66 50%, ${session.user.avatarColor}22 100%)` }}
+            />
+          )}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="flex items-center gap-1.5 text-white text-xs font-semibold bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <Pencil className="h-3 w-3" /> Cambiar banner
+            </div>
+          </div>
+        </div>
+
+        {/* Avatar superpuesto (Diseño idéntico a UserProfileModal) */}
+        <div className="absolute top-24 left-5 rounded-full ring-[6px] ring-card bg-card overflow-visible z-10 flex">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            className="relative shrink-0 group/av rounded-full block"
+            title="Cambiar foto de perfil"
+          >
+            <UserAvatar
+              username={visibleName}
+              color={session.user.avatarColor}
+              avatarUrl={session.user.avatarUrl}
+              size="2xl"
+              status={session.user.status || 'online'}
+            />
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 group-hover/av:bg-black/50 transition-colors duration-150">
+              <Pencil className="h-4 w-4 text-white opacity-0 group-hover/av:opacity-100 transition-opacity" />
+            </span>
+          </button>
+        </div>
+
+        {/* Info + botones */}
+        <div className="bg-card/70 px-5 pt-12 pb-5">
+          <div className="flex items-end justify-between gap-4 mt-2">
+            <div className="min-w-0">
+              <p className="font-display text-xl font-bold leading-tight">{visibleName}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{session.user.username}</p>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setColorOpen(v => !v)}>Usar color</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handlePhotoSelected} />
+      <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerSelected} />
+ 
+      {colorOpen && (
+        <SelectColorDialog
+          open={colorOpen}
+          onClose={() => setColorOpen(false)}
+          currentColor={session.user.avatarColor}
+          onSelect={handleSelectColor}
+          saving={savingColor}
+        />
+      )}
+ 
+      {isCropOpen && (
+        <AvatarCropDialog
+          imageSrc={cropImageSrc}
+          open={isCropOpen}
+          onClose={() => setIsCropOpen(false)}
+          onCrop={handleCropComplete}
+        />
+      )}
+ 
+      {isBannerCropOpen && (
+        <BannerCropDialog
+          imageSrc={cropBannerSrc}
+          open={isBannerCropOpen}
+          onClose={() => setIsBannerCropOpen(false)}
+          onCrop={handleBannerCropComplete}
+        />
+      )}
+
+      <SectionBlock id="cuenta-info" title="Información de cuenta">
+        <InfoRow icon={Pencil} label="Nombre visible"       value={visibleName}                                      onEdit={() => setEditField('displayName')} />
+        <InfoRow icon={User}  label="Nombre de usuario"    value={session.user.username}                             onEdit={() => setEditField('username')} />
+        <InfoRow icon={Smile} label="Estado personalizado" value={session.user.customStatus || 'Sin estado'}        onEdit={() => setEditField('customStatus')} />
+        <InfoRow icon={Mail}  label="Correo electrónico"   value={session.user.email}                               onEdit={() => setEditField('email')} />
+        <InfoRow icon={Phone} label="Número de teléfono"   value={session.user.phoneNumber || 'No añadido'}         onEdit={() => setEditField('phoneNumber')} editLabel={session.user.phoneNumber ? 'Editar' : 'Añadir'} />
+      </SectionBlock>
+
+      <SectionBlock id="cuenta-seguridad" title="Contraseña y seguridad">
+        <InfoRow icon={Lock}    label="Contraseña"                        value="••••••••"       onEdit={() => setEditField('password')} />
+        <InfoRow icon={Shield}  label="Autenticación de varios factores" value="Deshabilitado" onEdit={() => {}} disabled />
+        <InfoRow icon={Monitor} label="Dispositivos con sesión iniciada" value="1 dispositivo" onEdit={() => {}} editLabel="Ver" disabled />
+      </SectionBlock>
+
+
+
+      <EditFieldDialog
+        open={editField === 'username'}
+        label="Nombre de usuario (solo minúsculas, sin espacios)"
+        initialValue={session.user.username}
+        onClose={() => setEditField(null)}
+        onSave={handleSaveUsername}
+      />
+
+      <EditFieldDialog
+        open={editField === 'displayName'}
+        label="Nombre visible"
+        initialValue={session.user.displayName || ''}
+        onClose={() => setEditField(null)}
+        onSave={handleSaveDisplayName}
+      />
+
+      <EditCustomStatusDialog
+        open={editField === 'customStatus'}
+        initialValue={session.user.customStatus || ''}
+        onClose={() => setEditField(null)}
+        onSave={handleSaveCustomStatus}
+      />
+
+      <EditFieldDialog
+        open={editField === 'email'}
+        label="Dirección de correo electrónico"
+        initialValue={session.user.email}
+        onClose={() => setEditField(null)}
+        onSave={handleSaveEmail}
+      />
+
+      <EditPhoneNumberDialog
+        open={editField === 'phoneNumber'}
+        initialValue={session.user.phoneNumber || ''}
+        onClose={() => setEditField(null)}
+        onSave={handleSavePhoneNumber}
+      />
+
+      <EditPasswordDialog
+        open={editField === 'password'}
+        onClose={() => setEditField(null)}
+        onSave={handleSavePassword}
+      />
+    </>
+  );
+}
+
+// ── Resto de secciones (estructura + placeholders funcionales) ───────────────
+function Privacidad() {
+  return (
+    <>
+      <SectionBlock id="privacidad-mensajes" title="Mensajes privados">
+        <ToggleRow label="Permitir DMs de miembros del servidor" description="Los miembros de tus servidores pueden enviarte mensajes directos" defaultChecked />
+      </SectionBlock>
+      <SectionBlock id="privacidad-actividad" title="Actividad y estado">
+        <ToggleRow label="Mostrar mi estado en línea" defaultChecked />
+        <ToggleRow label="Mostrar actividad de juegos" defaultChecked />
+      </SectionBlock>
+      <SectionBlock id="privacidad-datos" title="Datos y permisos">
+        <InfoRow label="Solicitar mis datos" value="Descarga toda tu información" onEdit={() => {}} editLabel="Solicitar" disabled />
+      </SectionBlock>
+    </>
+  );
+}
+
+function Notificaciones() {
+  return (
+    <>
+      <SectionBlock id="notif-mensajes" title="Mensajes">
+        <ToggleRow label="Menciones directas" description="Notifica cuando alguien te mencione con @tunombre" defaultChecked />
+        <ToggleRow label="Mensajes directos" defaultChecked />
+      </SectionBlock>
+      <SectionBlock id="notif-servidores" title="Servidores">
+        <ToggleRow label="Notificaciones de servidores nuevos" />
+      </SectionBlock>
+      <SectionBlock id="notif-sonidos" title="Sonidos">
+        <ToggleRow label="Sonido en mensajes nuevos" defaultChecked />
+        <ToggleRow label="Sonido al conectarse un usuario" />
+      </SectionBlock>
+    </>
+  );
+}
+
+function Apariencia() {
+  const [activeThemeColor, setActiveThemeColor] = useState(() => {
+    return localStorage.getItem('moonlight:theme-color') || 'moonlight';
+  });
+ 
+  function handleSelectThemeColor(themeId) {
+    setActiveThemeColor(themeId);
+    const color = THEME_COLORS.find(c => c.id === themeId) || THEME_COLORS[0];
+    document.documentElement.style.setProperty('--dynamic-accent', color.hsl);
+    localStorage.setItem('moonlight:theme-color', themeId);
+  }
+ 
+  return (
+    <>
+      <SectionBlock id="apariencia-tema" title="Tema">
+        <div className="flex gap-2 py-4">
+          <button className="flex-1 rounded-md border-2 border-primary/40 bg-[hsl(240_6%_8%)] py-3 text-sm font-medium">Oscuro</button>
+          <button disabled className="flex-1 rounded-md border border-border bg-muted py-3 text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">Claro (pronto)</button>
+        </div>
+      </SectionBlock>
+ 
+      <SectionBlock id="apariencia-color" title="Color de acento">
+        <div className="py-4">
+          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+            Elige el color temático para los botones, selecciones y decoraciones de Moonlight.
+          </p>
+          <div className="flex gap-3 w-full">
+            {THEME_COLORS.map((tc) => (
+              <button
+                key={tc.id}
+                onClick={() => handleSelectThemeColor(tc.id)}
+                className={cn(
+                  'flex-1 flex flex-col p-2 rounded-xl border-2 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] shadow-sm bg-card/30 text-left',
+                  activeThemeColor === tc.id
+                    ? 'border-primary/40 text-foreground font-bold'
+                    : 'border-border/60 text-muted-foreground hover:bg-card/60 hover:text-foreground'
+                )}
+              >
+                {/* Rectángulo de color grande y visible */}
+                <div className="h-11 w-full rounded-lg shadow-inner transition-transform duration-150 group-hover:scale-[1.01]" style={{ backgroundColor: `hsl(${tc.hsl})` }} />
+                <span className="text-xs mt-2.5 pl-1 font-semibold">{tc.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </SectionBlock>
+ 
+      <SectionBlock id="apariencia-chat" title="Chat">
+        <ToggleRow label="Compactar mensajes" description="Reduce el espacio entre mensajes" />
+        <ToggleRow label="Reducir movimiento" />
+      </SectionBlock>
+    </>
+  );
+}
+
+function Accesibilidad() {
+  return (
+    <>
+      <SectionBlock id="accesibilidad-visual" title="Visual">
+        <ToggleRow label="Modo de alto contraste" />
+      </SectionBlock>
+      <SectionBlock id="accesibilidad-mensajes" title="Mensajes">
+        <ToggleRow label="Subtítulos automáticos en canales de voz" />
+      </SectionBlock>
+    </>
+  );
+}
+
+function VozVideo() {
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [audioOutputs, setAudioOutputs] = useState([]);
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [selectedAudio, setSelectedAudio] = useState(() => localStorage.getItem('moonlight:audioInputId') || 'default');
+  const [selectedOutput, setSelectedOutput] = useState(() => localStorage.getItem('moonlight:audioOutputId') || 'default');
+  const [selectedVideo, setSelectedVideo] = useState(() => localStorage.getItem('moonlight:videoInputId') || 'default');
+  const [hasPermission, setHasPermission] = useState(false);
+
+  async function loadDevices() {
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      const audios = list.filter(d => d.kind === 'audioinput');
+      const outputs = list.filter(d => d.kind === 'audiooutput');
+      const videos = list.filter(d => d.kind === 'videoinput');
+      setAudioDevices(audios);
+      setAudioOutputs(outputs);
+      setVideoDevices(videos);
+      
+      const hasLabels = list.some(d => !!d.label);
+      setHasPermission(hasLabels);
+    } catch (err) {
+      console.error('Error listing devices:', err);
+    }
+  }
+
+  async function requestPermissions() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      stream.getTracks().forEach(track => track.stop());
+      await loadDevices();
+    } catch (err) {
+      console.log('Permisos denegados para medios:', err);
+    }
+  }
+
+  useEffect(() => {
+    loadDevices();
+    
+    function syncSelectedAudio() {
+      setSelectedAudio(localStorage.getItem('moonlight:audioInputId') || 'default');
+    }
+    function syncSelectedOutput() {
+      setSelectedOutput(localStorage.getItem('moonlight:audioOutputId') || 'default');
+    }
+    window.addEventListener('moonlight:audiochange', syncSelectedAudio);
+    window.addEventListener('moonlight:audiooutputchange', syncSelectedOutput);
+
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', loadDevices);
+      return () => {
+        window.removeEventListener('moonlight:audiochange', syncSelectedAudio);
+        window.removeEventListener('moonlight:audiooutputchange', syncSelectedOutput);
+        navigator.mediaDevices.removeEventListener('devicechange', loadDevices);
+      };
+    }
+    return () => {
+      window.removeEventListener('moonlight:audiochange', syncSelectedAudio);
+      window.removeEventListener('moonlight:audiooutputchange', syncSelectedOutput);
+    };
+  }, []);
+
+  return (
+    <>
+      <SectionBlock id="voz-entrada" title="Entrada de voz">
+        <div className="space-y-1.5 py-4 border-b border-border/60 last:border-0">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dispositivo de entrada</label>
+            {!hasPermission && (
+              <button 
+                type="button" 
+                onClick={requestPermissions}
+                className="text-xs text-primary hover:underline font-medium"
+              >
+                Conceder permisos
+              </button>
+            )}
+          </div>
+          <select
+            value={selectedAudio}
+            onChange={(e) => {
+              setSelectedAudio(e.target.value);
+              localStorage.setItem('moonlight:audioInputId', e.target.value);
+              window.dispatchEvent(new CustomEvent('moonlight:audiochange'));
+            }}
+            className="w-full rounded-md bg-secondary border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer"
+          >
+            {audioDevices.length === 0 ? (
+              <option value="default">Predeterminado del sistema</option>
+            ) : (
+              audioDevices.map(d => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Micrófono (${d.deviceId.slice(0, 5)})`}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        <ToggleRow label="Cancelación de ruido" defaultChecked />
+      </SectionBlock>
+
+      <SectionBlock id="voz-salida" title="Salida de voz">
+        <div className="space-y-1.5 py-4 border-b border-border/60 last:border-0">
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dispositivo de salida</label>
+          <select
+            value={selectedOutput}
+            onChange={(e) => {
+              setSelectedOutput(e.target.value);
+              setAudioOutputId(e.target.value);
+            }}
+            className="w-full rounded-md bg-secondary border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer"
+          >
+            {audioOutputs.length === 0 ? (
+              <option value="default">Predeterminado del sistema</option>
+            ) : (
+              audioOutputs.map(d => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Altavoces/Auriculares (${d.deviceId.slice(0, 5)})`}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+      </SectionBlock>
+      
+      <SectionBlock id="voz-video" title="Video">
+        <div className="space-y-1.5 py-4 border-b border-border/60 last:border-0">
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cámara</label>
+          <select
+            value={selectedVideo}
+            onChange={(e) => {
+              setSelectedVideo(e.target.value);
+              localStorage.setItem('moonlight:videoInputId', e.target.value);
+              window.dispatchEvent(new CustomEvent('moonlight:videochange'));
+            }}
+            className="w-full rounded-md bg-secondary border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer"
+          >
+            {videoDevices.length === 0 ? (
+              <option value="default">Ninguna cámara detectada</option>
+            ) : (
+              videoDevices.map(d => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Cámara (${d.deviceId.slice(0, 5)})`}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+      </SectionBlock>
+    </>
+  );
+}
+
+function IdiomaHora() {
+  return (
+    <>
+      <SectionBlock id="idioma-app" title="Idioma de la app">
+        <InfoRow label="Idioma" value="Español" onEdit={() => {}} disabled />
+      </SectionBlock>
+      <SectionBlock id="idioma-hora" title="Formato de hora">
+        <InfoRow label="Formato" value="24 horas" onEdit={() => {}} disabled />
+      </SectionBlock>
+    </>
+  );
+}
+ 
+function Ayuda() {
+  return (
+    <>
+      <SectionBlock id="ayuda-soporte" title="Soporte">
+        <InfoRow label="Centro de ayuda" value="Documentación y preguntas frecuentes" onEdit={() => {}} editLabel="Abrir" disabled />
+        <InfoRow label="Código fuente" value="Repositorio oficial en GitHub" onEdit={() => {}} editLabel="Abrir" disabled />
+      </SectionBlock>
+      <SectionBlock id="ayuda-acerca" title="Acerca de">
+        <InfoRow label="Versión" value="Moonlight v2026.725.0" />
+      </SectionBlock>
+    </>
+  );
+}
+ 
+const SECTION_COMPONENTS = {
+  cuenta: CuentaInfo,
+  privacidad: Privacidad,
+  notificaciones: Notificaciones,
+  apariencia: Apariencia,
+  accesibilidad: Accesibilidad,
+  voz: VozVideo,
+  idioma: IdiomaHora,
+  ayuda: Ayuda,
+};
+ 
+export function UserSettingsModal({ open, onClose }) {
+  const { session, logout, updateProfile, uploadAvatar, uploadBanner } = useAuth();
+  const [activeSection, setActiveSection] = useState('cuenta');
+  const contentRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const SectionContent = SECTION_COMPONENTS[activeSection] || (() => null);
+  const activeLabel = SECTIONS.find((s) => s.id === activeSection)?.label || 'Ajustes';
+
+  function goToSubitem(sectionId, subitemId) {
+    setActiveSection(sectionId);
+    // Esperamos al siguiente frame para que la sección ya esté montada
+    requestAnimationFrame(() => {
+      const el = document.getElementById(subitemId);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+      {/* Fondo clicable para cerrar */}
+      <div className="absolute inset-0" onClick={onClose} />
+
+      {/* Contenedor flotante de Ajustes */}
+      <div className="relative z-10 flex w-[94vw] max-w-[1080px] h-[85vh] max-h-[750px] bg-background rounded-2xl border border-border/30 shadow-2xl overflow-hidden animate-scale-in">
+        
+        {/* Sidebar de secciones */}
+        <div className="flex w-60 shrink-0 flex-col bg-secondary px-3 py-6 overflow-y-auto scrollbar-thin border-r border-border/20">
+          <div className="flex items-center gap-3 px-2 mb-5 pb-4 border-b border-border/30">
+            <UserAvatar
+              username={displayNameOf(session?.user)}
+              color={session?.user?.avatarColor}
+              avatarUrl={session?.user?.avatarUrl}
+              size="sm"
+              status={session?.user?.status || 'online'}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold leading-tight text-foreground">{displayNameOf(session?.user)}</p>
+              <p className="truncate text-[10px] text-muted-foreground leading-none mt-1">{session?.user?.username}</p>
+            </div>
+          </div>
+    
+          {SECTIONS.map(({ id, label, icon: IconComponent, subitems }) => (
+            <div key={id} className="mb-1">
+              <button
+                onClick={() => setActiveSection(id)}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all duration-150 text-left font-semibold group',
+                  activeSection === id
+                    ? 'bg-dynamic-accent-10 text-foreground font-bold'
+                    : 'text-muted-foreground hover:bg-card/60 hover:text-foreground'
+                )}
+              >
+                {IconComponent && (
+                  <IconComponent
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-colors duration-150",
+                      activeSection === id ? "text-dynamic-accent" : "text-muted-foreground group-hover:text-foreground"
+                    )}
+                  />
+                )}
+                <span className="truncate">{label}</span>
+              </button>
+              <div
+                className={cn(
+                  'ml-4.5 border-l border-border/60 pl-3 overflow-hidden transition-all duration-300 ease-in-out',
+                  activeSection === id ? 'mt-1 mb-1.5 max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                )}
+              >
+                {subitems?.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => goToSubitem(id, s.id)}
+                    className="block w-full text-left px-2 py-1.5 text-xs text-muted-foreground rounded transition-colors duration-150 hover:bg-card/60 hover:text-foreground mb-0.5 last:mb-0"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+    
+          <div className="mt-2 h-px w-full bg-border/40" />
+    
+          <button
+            onClick={() => { logout(); onClose(); }}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold text-destructive/80 transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+    
+        {/* Contenido */}
+        <div ref={contentRef} className="flex-1 overflow-y-auto scrollbar-thin bg-background relative">
+          <div className="mx-auto max-w-2xl px-10 py-10">
+            <h2 className="font-display text-2xl font-bold mb-6 tracking-tight">{activeLabel}</h2>
+            <SectionContent 
+              session={session} 
+              updateProfile={updateProfile} 
+              uploadAvatar={uploadAvatar} 
+              uploadBanner={uploadBanner} 
+            />
+          </div>
+
+          {/* Botón cerrar flotante dentro del modal */}
+          <div className="absolute right-6 top-6 flex flex-col items-center gap-1 z-35">
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-all duration-200 hover:bg-card hover:text-foreground hover:scale-105 hover:border-foreground/40 active:scale-95 group"
+              title="Cerrar Ajustes (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <span className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest select-none font-mono">ESC</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+ 
+// ── Diálogo para seleccionar el color del avatar ──────────────────────────────
+function SelectColorDialog({ open, onClose, currentColor, onSelect, saving }) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[360px] bg-card border-border/80 text-card-foreground p-5 shadow-2xl">
+        <DialogHeader className="pb-3 border-b border-border/40">
+          <DialogTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            Color del avatar
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Selecciona un color de fondo para tu avatar predeterminado.
+          </p>
+        </DialogHeader>
+ 
+        <div className="py-5">
+          <div className="grid grid-cols-6 gap-3.5 justify-items-center">
+            {AVATAR_COLORS.map((c) => (
+              <button
+                key={c}
+                disabled={saving}
+                onClick={() => onSelect(c)}
+                className={cn(
+                  'h-9 w-9 rounded-full border-2 transition-all duration-150 hover:scale-110 shadow-md',
+                  currentColor === c ? 'border-foreground scale-110' : 'border-border/60'
+                )}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+ 
+        <div className="flex justify-end pt-3 border-t border-border/40">
+          <Button variant="secondary" onClick={onClose} disabled={saving} size="sm">
+            Cancelar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+ 
+// ── Componente de Recorte de Avatar (Estilo Discord) ─────────────────────────
+function AvatarCropDialog({ imageSrc, open, onClose, onCrop }) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const imageRef = useRef(null);
+  const containerRef = useRef(null);
+ 
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const containerSize = 240;
+  const cropSize = 240;
+ 
+  // Cargar imagen y calcular proporciones iniciales (cubriendo el círculo de 240px)
+  useEffect(() => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    if (!imageSrc) return;
+ 
+    const img = new Image();
+    img.onload = () => {
+      const imgAspect = img.width / img.height;
+      let renderWidth, renderHeight;
+ 
+      if (imgAspect > 1) {
+        renderHeight = cropSize;
+        renderWidth = cropSize * imgAspect;
+      } else {
+        renderWidth = cropSize;
+        renderHeight = cropSize / imgAspect;
+      }
+      setImageSize({ width: renderWidth, height: renderHeight });
+    };
+    img.src = imageSrc;
+  }, [imageSrc]);
+ 
+  // Calcula los límites de arrastre para que la imagen siempre cubra el círculo
+  const getClampedOffset = (x, y, currentZoom) => {
+    if (!imageSize.width) return { x: 0, y: 0 };
+ 
+    const cropX = (containerSize - cropSize) / 2;
+    const cropY = (containerSize - cropSize) / 2;
+ 
+    const w = imageSize.width * currentZoom;
+    const h = imageSize.height * currentZoom;
+ 
+    const initialX = (containerSize - w) / 2;
+    const initialY = (containerSize - h) / 2;
+ 
+    const minX = cropX + cropSize - initialX - w;
+    const maxX = cropX - initialX;
+    const minY = cropY + cropSize - initialY - h;
+    const maxY = cropY - initialY;
+ 
+    return {
+      x: Math.max(minX, Math.min(maxX, x)),
+      y: Math.max(minY, Math.min(maxY, y)),
+    };
+  };
+ 
+  // Re-ajustar el offset al hacer zoom para no dejar huecos
+  useEffect(() => {
+    setOffset((prev) => getClampedOffset(prev.x, prev.y, zoom));
+  }, [zoom, imageSize]);
+ 
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+  };
+ 
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const rawX = e.clientX - dragStart.current.x;
+    const rawY = e.clientY - dragStart.current.y;
+    setOffset(getClampedOffset(rawX, rawY, zoom));
+  };
+ 
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+ 
+  const handleSave = () => {
+    const img = imageRef.current;
+    if (!img || !imageSize.width) return;
+ 
+    const canvas = document.createElement('canvas');
+    const size = 300; // Calidad final del avatar
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+ 
+    // Círculo de recorte en coordenadas del contenedor
+    const cropX = (containerSize - cropSize) / 2;
+    const cropY = (containerSize - cropSize) / 2;
+ 
+    // Dimensiones con zoom aplicado
+    const zoomedWidth = imageSize.width * zoom;
+    const zoomedHeight = imageSize.height * zoom;
+ 
+    // Posición inicial centrada
+    const initialX = (containerSize - zoomedWidth) / 2;
+    const initialY = (containerSize - zoomedHeight) / 2;
+ 
+    // Posición final de la imagen en el contenedor
+    const imgX = initialX + offset.x;
+    const imgY = initialY + offset.y;
+ 
+    // Mapear al canvas
+    const scale = size / cropSize;
+    const relX = imgX - cropX;
+    const relY = imgY - cropY;
+ 
+    ctx.drawImage(
+      img,
+      relX * scale,
+      relY * scale,
+      zoomedWidth * scale,
+      zoomedHeight * scale
+    );
+ 
+    canvas.toBlob((blob) => {
+      if (blob) onCrop(blob);
+    }, 'image/png');
+  };
+ 
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[400px] bg-card border-border text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-center font-display text-lg font-bold">Ajustar tu avatar</DialogTitle>
+        </DialogHeader>
+ 
+        <div className="flex flex-col items-center justify-center py-4 gap-5">
+          {/* Contenedor del Editor de Recorte */}
+          <div
+            ref={containerRef}
+            className="relative w-[240px] h-[240px] bg-card rounded-lg overflow-hidden cursor-move select-none border border-border/40"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            {/* Imagen a recortar */}
+            {imageSize.width > 0 && (
+              <img
+                ref={imageRef}
+                src={imageSrc}
+                alt="Avatar Source"
+                className="absolute pointer-events-none origin-center max-w-none max-h-none"
+                style={{
+                  width: `${imageSize.width}px`,
+                  height: `${imageSize.height}px`,
+                  left: `${(containerSize - imageSize.width) / 2}px`,
+                  top: `${(containerSize - imageSize.height) / 2}px`,
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                }}
+              />
+            )}
+ 
+            {/* Máscara de recorte circular estilo Discord */}
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div
+                className="w-full h-full"
+                style={{
+                  background: 'radial-gradient(circle 120px at 120px 120px, transparent 99%, rgba(21, 22, 24, 0.8) 100%)',
+                }}
+              />
+              <div className="absolute w-[240px] h-[240px] rounded-full border-2 border-white/90 shadow-[0_0_4px_rgba(0,0,0,0.3)]" />
+            </div>
+          </div>
+ 
+          {/* Slider de Zoom con Iconos */}
+          <div className="flex items-center gap-3 w-full px-4">
+            <ZoomOut className="h-4 w-4 text-muted-foreground" />
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.01"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="flex-1 h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <ZoomIn className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+ 
+        <div className="flex gap-2 justify-end mt-4">
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            className="bg-muted hover:bg-muted/80 border border-border/40 text-foreground"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            className="bg-primary text-primary-foreground hover:bg-primary/95"
+          >
+            Guardar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+ 
+// ── Componente de Recorte de Banner (Estilo Discord) ──────────────────────────
+function BannerCropDialog({ imageSrc, open, onClose, onCrop }) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const imageRef = useRef(null);
+  const containerRef = useRef(null);
+ 
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const containerWidth = 340;
+  const containerHeight = 100;
+ 
+  // Cargar imagen y calcular proporciones iniciales (adaptándose al rectángulo de 340x100px)
+  useEffect(() => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    if (!imageSrc) return;
+ 
+    const img = new Image();
+    img.onload = () => {
+      const imgAspect = img.width / img.height;
+      const targetAspect = containerWidth / containerHeight; // 3.4
+      let renderWidth, renderHeight;
+ 
+      if (imgAspect > targetAspect) {
+        renderHeight = containerHeight;
+        renderWidth = containerHeight * imgAspect;
+      } else {
+        renderWidth = containerWidth;
+        renderHeight = containerWidth / imgAspect;
+      }
+      setImageSize({ width: renderWidth, height: renderHeight });
+    };
+    img.src = imageSrc;
+  }, [imageSrc]);
+ 
+  // Calcula los límites de arrastre para que la imagen siempre cubra el rectángulo
+  const getClampedOffset = (x, y, currentZoom) => {
+    if (!imageSize.width) return { x: 0, y: 0 };
+ 
+    const w = imageSize.width * currentZoom;
+    const h = imageSize.height * currentZoom;
+ 
+    const initialX = (containerWidth - w) / 2;
+    const initialY = (containerHeight - h) / 2;
+ 
+    const minX = containerWidth - initialX - w;
+    const maxX = -initialX;
+    const minY = containerHeight - initialY - h;
+    const maxY = -initialY;
+ 
+    return {
+      x: Math.max(minX, Math.min(maxX, x)),
+      y: Math.max(minY, Math.min(maxY, y)),
+    };
+  };
+ 
+  // Re-ajustar el offset al hacer zoom para no dejar huecos
+  useEffect(() => {
+    setOffset((prev) => getClampedOffset(prev.x, prev.y, zoom));
+  }, [zoom, imageSize]);
+ 
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+  };
+ 
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const rawX = e.clientX - dragStart.current.x;
+    const rawY = e.clientY - dragStart.current.y;
+    setOffset(getClampedOffset(rawX, rawY, zoom));
+  };
+ 
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+ 
+  const handleSave = () => {
+    const img = imageRef.current;
+    if (!img || !imageSize.width) return;
+ 
+    const canvas = document.createElement('canvas');
+    const width = 950;
+    const height = 280;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+ 
+    // Dimensiones con zoom aplicado
+    const zoomedWidth = imageSize.width * zoom;
+    const zoomedHeight = imageSize.height * zoom;
+ 
+    // Posición inicial centrada
+    const initialX = (containerWidth - zoomedWidth) / 2;
+    const initialY = (containerHeight - zoomedHeight) / 2;
+ 
+    // Posición final de la imagen en el contenedor
+    const imgX = initialX + offset.x;
+    const imgY = initialY + offset.y;
+ 
+    // Mapear al canvas
+    const scale = width / containerWidth;
+ 
+    ctx.drawImage(
+      img,
+      imgX * scale,
+      imgY * scale,
+      zoomedWidth * scale,
+      zoomedHeight * scale
+    );
+ 
+    canvas.toBlob((blob) => {
+      if (blob) onCrop(blob);
+    }, 'image/png');
+  };
+ 
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[400px] bg-card border-border text-foreground">
+        <DialogHeader>
+          <DialogTitle className="text-center font-display text-lg font-bold">Ajustar tu banner</DialogTitle>
+        </DialogHeader>
+ 
+        <div className="flex flex-col items-center justify-center py-4 gap-5">
+          {/* Contenedor del Editor de Recorte de Banner */}
+          <div
+            ref={containerRef}
+            className="relative w-[340px] h-[100px] bg-card rounded-lg overflow-hidden cursor-move select-none border border-border/40"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            {/* Imagen a recortar */}
+            {imageSize.width > 0 && (
+              <img
+                ref={imageRef}
+                src={imageSrc}
+                alt="Banner Source"
+                className="absolute pointer-events-none origin-center max-w-none max-h-none"
+                style={{
+                  width: `${imageSize.width}px`,
+                  height: `${imageSize.height}px`,
+                  left: `${(containerWidth - imageSize.width) / 2}px`,
+                  top: `${(containerHeight - imageSize.height) / 2}px`,
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                }}
+              />
+            )}
+ 
+            {/* Máscara de recorte rectangular */}
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div
+                className="w-full h-full"
+                style={{
+                  background: 'radial-gradient(rect 340px 100px at 170px 50px, transparent 99%, rgba(21, 22, 24, 0.8) 100%)',
+                }}
+              />
+              <div className="absolute inset-0 border-2 border-white/90 shadow-[0_0_4px_rgba(0,0,0,0.3)] rounded-lg" />
+            </div>
+          </div>
+ 
+          {/* Slider de Zoom con Iconos */}
+          <div className="flex items-center gap-3 w-full px-4">
+            <ZoomOut className="h-4 w-4 text-muted-foreground" />
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.01"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="flex-1 h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <ZoomIn className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+ 
+        <div className="flex gap-2 justify-end mt-4">
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            className="bg-muted hover:bg-muted/80 border border-border/40 text-foreground"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            className="bg-primary text-primary-foreground hover:bg-primary/95"
+          >
+            Guardar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

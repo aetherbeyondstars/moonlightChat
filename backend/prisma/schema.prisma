@@ -1,0 +1,304 @@
+// ============================================================================
+// Prisma Schema - Moonlight
+// ----------------------------------------------------------------------------
+// Usamos SQLite para desarrollo local (un solo archivo, cero configuración).
+// Para migrar a PostgreSQL en producción solo hay que cambiar el "provider"
+// y el "url" de abajo, y correr `npx prisma migrate dev` de nuevo.
+// El resto del código (servicios, controladores) NO cambia, porque Prisma
+// genera el mismo cliente sin importar el motor de base de datos.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  // Para PostgreSQL en el futuro, cambia a:
+  // provider = "postgresql"
+  // url      = env("DATABASE_URL") // ej: postgresql://user:pass@host:5432/db
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// User: una cuenta de usuario de la aplicación
+// ----------------------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique // siempre en minúsculas, sin espacios; es el identificador único (como el @handle de Discord)
+  displayName  String?  // nombre visible en el chat; si es null, se muestra el username
+  email        String   @unique
+  phoneNumber  String?
+  passwordHash String
+  avatarColor  String   @default("#5865F2") // color de avatar tipo Discord (fallback si no hay foto)
+  avatarUrl    String?  // foto de perfil subida por el usuario, si la hay
+  bannerUrl    String?  // banner de perfil subido por el usuario, si lo hay
+  status       String   @default("offline") // online | idle | busy | offline (calculado por presencia + manualStatus)
+  manualStatus String?  // online | idle | busy — si el usuario eligió un estado manualmente; null = automático
+  customStatus String?  // estado personalizado con emoji (ej. "🚀 Trabajando")
+  bio          String?  // biografía o sobre mí del usuario
+  badges       String   @default("[]") // Insignias globales del usuario (ej: ["HOST_OWNER", "INSTANCE_ADMIN", "BUG_HUNTER"])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships  Membership[]
+  messages     Message[]
+  ownedServers Server[]     @relation("ServerOwner")
+  notifications Notification[]
+
+  // Amistades: como la relación es simétrica pero Prisma necesita dos lados
+  // con nombre, modelamos cada amistad como un registro con "userId" y
+  // "friendId" duplicado en ambas direcciones al aceptar la solicitud (ver
+  // friendship.service.js). Las solicitudes pendientes se guardan en
+  // FriendRequest, que sí es direccional (de quién a quién).
+  sentFriendRequests     FriendRequest[] @relation("FriendRequestSender")
+  receivedFriendRequests FriendRequest[] @relation("FriendRequestReceiver")
+  friendshipsAsUser      Friendship[]    @relation("FriendshipUser")
+  friendshipsAsFriend    Friendship[]    @relation("FriendshipFriend")
+
+  // Mensajes directos: igual que servers/channels, pero 1:1 entre dos
+  // usuarios. Cada DMConversation conecta a dos participantes.
+  dmParticipations DMParticipant[]
+  dmMessages       DMMessage[]
+
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// Notification: aviso pendiente para un usuario (de momento solo
+// menciones con @username). Alimenta el badge numérico rojo que se ve
+// junto al servidor o la conversación de DM donde ocurrió la mención.
+// ----------------------------------------------------------------------------
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   // a quién va dirigida la notificación
+  type      String   @default("mention") // de momento solo "mention"; deja sitio para más tipos en el futuro
+  serverId  String?  // si la mención fue en un canal de servidor
+  channelId String?
+  conversationId String? // si la mención fue en un DM
+  messageId String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ----------------------------------------------------------------------------
+// Server: un "servidor" (espacio/comunidad), como en Discord
+// ----------------------------------------------------------------------------
+model Server {
+  id         String   @id @default(cuid())
+  name       String
+  iconColor  String   @default("#5865F2") // color de fondo del icono (fallback si no hay imagen)
+  iconUrl    String?  // imagen de icono subida por el propietario, si la hay
+  bannerUrl  String?  // banner del servidor (opcional)
+  inviteCode String   @unique @default(cuid())
+  ownerId    String
+  createdAt  DateTime @default(now())
+
+  owner       User         @relation("ServerOwner", fields: [ownerId], references: [id])
+  channels    Channel[]
+  categories  Category[]
+  memberships Membership[]
+
+  @@map("servers")
+}
+
+// ----------------------------------------------------------------------------
+// Category: agrupa canales dentro de un servidor (como las categorías de
+// Discord). Un canal puede no tener categoría (categoryId null).
+// ----------------------------------------------------------------------------
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  serverId  String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  channels Channel[]
+
+  @@map("categories")
+}
+
+// ----------------------------------------------------------------------------
+// Channel: un canal de texto (o voz, en el futuro) dentro de un Server
+// ----------------------------------------------------------------------------
+model Channel {
+  id         String   @id @default(cuid())
+  name       String
+  // Valores válidos: "TEXT" | "VOICE" (preparado para el futuro, aún no usado).
+  // Nota: SQLite no soporta enums nativos en Prisma, por eso es String.
+  // Si migras a PostgreSQL, puedes volver a convertir esto en un enum real.
+  type       String   @default("TEXT")
+  serverId   String
+  categoryId String?  // null = canal "suelto", sin categoría
+  position   Int      @default(0)
+  userLimit  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  server   Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  messages Message[]
+
+  @@map("channels")
+}
+
+// ----------------------------------------------------------------------------
+// Message: un mensaje enviado en un Channel
+// ----------------------------------------------------------------------------
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  channelId String
+  authorId  String
+  createdAt DateTime @default(now())
+  editedAt  DateTime?
+  // Respuesta a otro mensaje (optional)
+  replyToId String?
+  // Reacciones almacenadas como JSON string: [{"emoji":"👍","userIds":["id1","id2"]}]
+  reactions String   @default("[]")
+  // URL de imagen adjunta (subida vía /api/uploads/message-image), opcional
+  imageUrl  String?
+
+  channel  Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+  replyTo  Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies  Message[] @relation("MessageReplies")
+
+  @@index([channelId, createdAt])
+  @@map("messages")
+}
+
+// ----------------------------------------------------------------------------
+// Membership: relación N:M entre User y Server, con rol incluido
+// ----------------------------------------------------------------------------
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  serverId  String
+  // Valores válidos: "OWNER" | "ADMIN" | "MEMBER".
+  // Nota: SQLite no soporta enums nativos en Prisma, por eso es String.
+  // Si migras a PostgreSQL, puedes volver a convertir esto en un enum real.
+  role      String   @default("MEMBER")
+  // Posición del servidor en la lista lateral del usuario (para reordenar
+  // arrastrando). Cada usuario tiene su propio orden, por eso vive aquí y
+  // no en el modelo Server.
+  position  Int      @default(0)
+  joinedAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId]) // un usuario no puede unirse dos veces al mismo server
+  @@map("memberships")
+}
+
+// ----------------------------------------------------------------------------
+// FriendRequest: solicitud de amistad pendiente, de un usuario a otro.
+// Al aceptarse, se borra y se crean los dos registros de Friendship
+// correspondientes (ver friendship.service.js).
+// ----------------------------------------------------------------------------
+model FriendRequest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("FriendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("FriendRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+}
+
+// ----------------------------------------------------------------------------
+// Friendship: amistad ya establecida. Se guarda en ambas direcciones
+// (userId->friendId y friendId->userId) para que cada usuario pueda
+// consultar "mis amigos" con una query simple `where userId = miId`.
+// ----------------------------------------------------------------------------
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  user   User @relation("FriendshipUser", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipFriend", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@map("friendships")
+}
+
+// ----------------------------------------------------------------------------
+// DMConversation: una conversación de mensajes directos entre dos usuarios.
+// DMParticipant es la tabla intermedia (N:M), igual que Membership lo es
+// para servers — así, si en el futuro se quisieran DMs grupales, el modelo
+// ya está preparado sin tener que rediseñar nada.
+// ----------------------------------------------------------------------------
+model DMConversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  participants DMParticipant[]
+  messages     DMMessage[]
+  callLogs     CallLog[]
+
+  @@map("dm_conversations")
+}
+
+model DMParticipant {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String
+  lastReadAt     DateTime @default(now())
+  isOpen         Boolean  @default(true)
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation DMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationId])
+  @@map("dm_participants")
+}
+
+model DMMessage {
+  id             String   @id @default(cuid())
+  content        String
+  conversationId String
+  authorId       String
+  createdAt      DateTime @default(now())
+  editedAt       DateTime?
+  imageUrl       String?
+  reactions      String   @default("[]")
+
+  conversation DMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User           @relation(fields: [authorId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@map("dm_messages")
+}
+
+// ----------------------------------------------------------------------------
+// CallLog: registro histórico de llamadas de voz/video por DM (no de
+// canales de voz, esos son efímeros y no se guardan). Sirve para mostrar
+// en el chat algo como "Llamada perdida" o "Llamada de 5:32" tal como
+// hace Discord. La señalización en tiempo real (ofertas/respuestas SDP,
+// candidatos ICE) NO se persiste, vive solo en sockets (ver
+// voice.socket.js); aquí solo guardamos el resultado final.
+// ----------------------------------------------------------------------------
+model CallLog {
+  id             String    @id @default(cuid())
+  conversationId String
+  callerId       String
+  type           String    @default("voice") // "voice" | "video"
+  status         String    @default("missed") // "missed" | "completed" | "declined"
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+
+  conversation DMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("call_logs")
+}

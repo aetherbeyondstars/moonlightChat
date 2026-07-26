@@ -1,0 +1,265 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+ 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root.dark {
+    /* Paleta de colores Moonlight Premium */
+    --background: 240 10% 4%;         /* Negro espacial profundo */
+    --foreground: 0 0% 98%;
+ 
+    --card: 240 6% 9%;               /* Gris carbón para paneles secundarios */
+    --card-foreground: 0 0% 98%;
+ 
+    --popover: 240 8% 8%;
+    --popover-foreground: 0 0% 98%;
+ 
+    --primary: 0 0% 42%;             /* Gris Ceniza base Moonlight */
+    --dynamic-accent: 235 86% 65%;   /* Acento dinámico sólo para canales, DMs y menciones */
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 240 5% 12%;         /* Gris intermedio para elementos hover */
+    --secondary-foreground: 0 0% 90%;
+ 
+    --muted: 240 5% 11%;
+    --muted-foreground: 240 4% 65%;
+ 
+    --accent: 0 0% 42%;
+    --accent-foreground: 0 0% 100%;
+ 
+    --destructive: 359 82% 60%;
+    --destructive-foreground: 0 0% 100%;
+ 
+    --border: 240 5% 14%;
+    --input: 240 5% 14%;
+    --ring: 0 0% 42%;
+ 
+    --radius: 0.85rem;                /* Bordes un poco más redondeados y modernos */
+  }
+ 
+  * {
+    @apply border-border/60 transition-colors duration-150; /* Transición suave de color de borde por defecto */
+  }
+ 
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+ 
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    @apply tracking-tight;
+  }
+}
+ 
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 8px;
+    transition: background-color 0.2s;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground)/40);
+  }
+ 
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+ 
+  /* Clases de diseño premium Moonlight */
+  .glass-panel {
+    background: rgba(10, 10, 12, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+ 
+  .text-glow {
+    text-shadow: 0 0 20px rgba(88, 101, 242, 0.3);
+  }
+  
+  .premium-shadow {
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  }
+ 
+  /* Utilidades dinámicas sólo para canales, DMs y menciones */
+  .bg-dynamic-accent-10 {
+    background-color: hsla(var(--dynamic-accent) / 0.1) !important;
+  }
+  .bg-dynamic-accent {
+    background-color: hsl(var(--dynamic-accent)) !important;
+  }
+  .text-dynamic-accent {
+    color: hsl(var(--dynamic-accent)) !important;
+  }
+ 
+  /* Menciones suaves para temas grises y vibrantes */
+  .mention-gray {
+    background-color: hsla(var(--dynamic-accent) / 0.2) !important;
+    color: hsl(var(--dynamic-accent)) !important;
+  }
+  .mention-gray:hover {
+    background-color: hsla(var(--dynamic-accent) / 0.3) !important;
+  }
+ 
+  .mention-vibrant {
+    background-color: hsla(var(--dynamic-accent) / 0.12) !important;
+    color: hsla(var(--dynamic-accent) / 0.6) !important;
+  }
+  .mention-vibrant:hover {
+    background-color: hsla(var(--dynamic-accent) / 0.25) !important;
+    color: hsl(var(--dynamic-accent)) !important;
+  }
+ 
+  /* Botones de acción rápida del mensaje de bienvenida con acento dinámico */
+  .welcome-action-btn {
+    background-color: hsla(var(--dynamic-accent) / 0.015) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  .welcome-action-btn:hover {
+    background-color: hsla(var(--dynamic-accent) / 0.07) !important;
+    border-color: hsla(var(--dynamic-accent) / 0.45) !important;
+    box-shadow: 0 10px 22px -5px hsla(var(--dynamic-accent) / 0.09) !important;
+  }
+  .welcome-action-icon {
+    background-color: hsla(var(--dynamic-accent) / 0.12) !important;
+    color: hsla(var(--dynamic-accent) / 0.85) !important;
+  }
+  .welcome-action-btn:hover .welcome-action-icon {
+    background-color: hsla(var(--dynamic-accent) / 0.45) !important;
+    color: hsl(var(--dynamic-accent)) !important;
+  }
+ 
+  /* Destacado de mensajes (menciones y respuestas) con acento dinámico */
+  .message-highlighted {
+    background-color: hsla(var(--dynamic-accent) / 0.05) !important;
+    border-top: 1px solid hsla(var(--dynamic-accent) / 0.05) !important;
+    border-bottom: 1px solid hsla(var(--dynamic-accent) / 0.05) !important;
+  }
+  .message-highlighted:hover {
+    background-color: hsla(var(--dynamic-accent) / 0.08) !important;
+  }
+  .message-highlight-bar {
+    background-color: hsl(var(--dynamic-accent)) !important;
+  }
+}
+
+@keyframes typing-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-1px) scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* -- Voice limit slider - Discord-style ------------------------------------- */
+.voice-limit-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 99px;
+  background: hsl(var(--muted));
+  outline: none;
+  cursor: pointer;
+  overflow: visible;
+  transition: background 0.15s;
+}
+
+.voice-limit-slider::-webkit-slider-container {
+  overflow: visible;
+}
+
+.voice-limit-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.55);
+  cursor: grab;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.voice-limit-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.55);
+  cursor: grab;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.voice-limit-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.65);
+}
+
+.voice-limit-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.2);
+}
+
+.voice-limit-slider::-webkit-slider-runnable-track {
+  border-radius: 99px;
+  height: 8px;
+}
+
+.voice-limit-slider::-moz-range-track {
+  border-radius: 99px;
+  height: 8px;
+  background: hsl(var(--muted));
+}
+
+@keyframes typing-dot-flash {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-typing-dot {
+  animation: typing-dot-flash 1.2s infinite ease-in-out;
+}
+
+@keyframes message-jump-flash {
+  0% {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.message-jump-flash {
+  animation: message-jump-flash 2.5s ease-out forwards !important;
+  border-radius: 0.375rem !important;
+}
