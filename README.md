@@ -36,7 +36,7 @@
 - **Perfil de Usuario Avanzado**: Visualización de tarjetas de perfil con avatar, banner personalizable, biografía y estado personalizado.
 - **Badges Globales Exclusivas**:
   - 👑 **Host Owner**: Propietario del host de la instancia.
-  - 🛡️ **Moonlight Staff**: Equipo administrativo oficial.
+  - 🛡️ **Moonlight Staff**: Equipo administrativo de la instancia.
   - 🐛 **Bug Hunter**: Cazadores de bugs de la comunidad.
 - **Gestión por Consola**: Asignación rápida de insignias mediante comando CLI en el backend (`npm run set-badges`).
 
