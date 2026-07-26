@@ -108,7 +108,7 @@ cd backend
 # Instalar dependencias
 npm install
 
-# Copiar archivo de variables de entorno
+# Copiar archivo de variables de entorno (usar 'copy' en lugar de 'cp' si usas CMD de Windows)
 cp .env.example .env
 
 # Sincronizar la base de datos SQLite con Prisma
@@ -127,6 +127,8 @@ npm install
 # Copiar archivo de variables de entorno
 cp .env.example .env
 ```
+
+*(Si vas a desplegar en producción en un servidor remoto, edita `frontend/.env` para cambiar `VITE_API_URL` por la dirección de tu servidor, por ejemplo: `VITE_API_URL=https://tudominio.com`).*
 
 ---
 
