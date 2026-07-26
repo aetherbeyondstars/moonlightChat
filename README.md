@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌙 Moonlight
+# 🌙 Moonlight Chat
 
 **Plataforma de Comunicación en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
 
