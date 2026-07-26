@@ -2,7 +2,7 @@
 
 # 🌙 Moonlight Chat
 
-**Plataforma de Comunicación en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
+**Aplicación de Mensajeria Instantanea en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
 
 [![Versión](https://img.shields.io/badge/versión-2026.725.0-7289da.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
 [![Plataformas](https://img.shields.io/badge/plataforma-Web%20%7C%20Windows%20%7C%20Linux-007ACC.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
