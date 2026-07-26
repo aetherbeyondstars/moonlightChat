@@ -154,7 +154,7 @@ Abre tu navegador en `https://localhost:5173`.
 
 ---
 
-## 🌐 Tutorial: Montar el Servidor en Producción en Linux (VPS / Ubuntu / Debian)
+## 🌐 Montar el Servidor en Producción en Linux (VPS / Ubuntu / Debian)
 
 Esta guía explica paso a paso cómo alojar el backend de Moonlight en un servidor VPS o dedicado con Linux (Ubuntu/Debian) para que funcione 24/7 con soporte para WebSockets y SSL seguro.
 
