@@ -2,26 +2,23 @@
 
 # 🌙 Moonlight Chat
 
-**Aplicación de Mensajeria Instantanea en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
+**Aplicación de Mensajería Instantánea en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
 
 [![Versión](https://img.shields.io/badge/versión-2026.725.0-7289da.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
 [![Plataformas](https://img.shields.io/badge/plataforma-Web%20%7C%20Windows%20%7C%20Linux-007ACC.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green.svg?style=for-the-badge)](LICENSE)
 
----
-
-## ⚠️ Aviso Importante / Descargo de Responsabilidad (Disclaimer)
-
-> [!WARNING]
-> **Moonlight Chat** es un proyecto en desarrollo activo y se proporciona "tal cual" (*as is*).
-> 
-> - **Estado del proyecto**: La aplicación no se encuentra finalizada al 100% y puede presentar fallos de funcionamiento (bugs), interrupciones inesperadas o características incompletas.
-> - **Seguridad**: El sistema no ha sido sometido a una auditoría de seguridad formal. Puede contener posibles vulnerabilidades o riesgos de seguridad no identificados, por lo que **no se recomienda su despliegue en entornos de producción críticos** ni el manejo de datos altamente sensibles.
-> - **Responsabilidad**: El uso de este software para hospedar servidores comunitarios o privados se realiza bajo la entera responsabilidad del administrador o usuario.
-
----
+*Inspirada en las mejores experiencias de chat moderno con un diseño oscuro, elegante, ultra fluido y soporte nativo para aplicaciones de escritorio.*
 
 </div>
+
+---
+
+> [!WARNING]
+> **Proyecto en Desarrollo Activo (Estado Beta)**  
+> **Moonlight Chat** no está finalizado al 100%. Puede presentar errores de software (*bugs*), comportamiento inestable o vulnerabilidades de seguridad no auditadas. No se recomienda su uso en entornos de producción críticos ni para el manejo de información confidencial.
+
+---
 
 ## ✨ Características Destacadas
 
