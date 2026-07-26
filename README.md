@@ -5,7 +5,7 @@
 **Plataforma de Comunicación en Tiempo Real para Comunidades, Servidores y Mensajes Directos.**
 
 [![Versión](https://img.shields.io/badge/versión-2026.725.0-7289da.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
-[![Plataformas](https://img.shields.io/badge/plataforma-Web%20%7C%20Desktop%20(Windows)-007ACC.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
+[![Plataformas](https://img.shields.io/badge/plataforma-Web%20%7C%20Windows%20%7C%20Linux-007ACC.svg?style=for-the-badge)](https://github.com/aetherbeyondstars/moonlightChat)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 *Inspirada en las mejores experiencias de chat moderno con un diseño oscuro, elegante, ultra fluido y soporte nativo para aplicaciones de escritorio.*
@@ -126,27 +126,178 @@ cp .env.example .env
 
 ### **4. Iniciar la Aplicación**
 
-#### **En Windows (Recomendado)**
-Haz doble clic en el ejecutable **`run/run.bat`** o ejecuta en la consola:
+#### 🪟 En Windows
+Haz doble clic en el ejecutable **`run/run.bat`** o ejecuta en PowerShell:
 ```powershell
 .\run\run.bat
 ```
 Esto abrirá dos ventanas independientes marcadas como **Consola Backend** y **Consola Frontend**.
 
-#### **Manualmente desde la Consola**
+O manualmente en dos consolas:
+- **Backend**: `cd backend && npm run dev`
+- **Frontend**: `cd frontend && npm run dev`
 
-- **Backend**:
+#### 🐧 En Linux (Desarrollo Local)
+Ejecuta en dos terminales independientes:
+- **Terminal 1 (Backend)**:
   ```bash
   cd backend
   npm run dev
   ```
-- **Frontend**:
+- **Terminal 2 (Frontend)**:
   ```bash
   cd frontend
   npm run dev
   ```
 
 Abre tu navegador en `https://localhost:5173`.
+
+---
+
+## 🌐 Tutorial: Montar el Servidor en Producción en Linux (VPS / Ubuntu / Debian)
+
+Esta guía explica paso a paso cómo alojar el backend de Moonlight en un servidor VPS o dedicado con Linux (Ubuntu/Debian) para que funcione 24/7 con soporte para WebSockets y SSL seguro.
+
+### **Paso 1: Instalar Node.js y PM2 en el Servidor**
+```bash
+# Actualizar el sistema e instalar dependencias básicas
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl git build-essential
+
+# Instalar Node.js 20 LTS
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Instalar PM2 para mantener el servicio funcionando 24/7
+sudo npm install -g pm2
+```
+
+### **Paso 2: Clonar el Código y Configurar Variables de Entorno**
+```bash
+# Clonar el proyecto en el servidor
+git clone https://github.com/aetherbeyondstars/moonlightChat.git
+cd moonlightChat/backend
+
+# Instalar dependencias del backend
+npm install
+
+# Crear el archivo de entorno
+cp .env.example .env
+```
+
+Edita la configuración en el archivo `.env` (`nano .env`):
+```env
+PORT=4000
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="un_secreto_aleatorio_y_muy_seguro_para_produccion"
+CLIENT_URL="https://tudominio.com"
+```
+
+### **Paso 3: Inicializar la Base de Datos y Arrancar con PM2**
+```bash
+# Sincronizar Prisma ORM y la BD SQLite en disco
+npx prisma db push
+
+# Iniciar el servicio con PM2
+pm2 start src/server.js --name "moonlight-backend"
+
+# Configurar PM2 para que rearranque automáticamente si se reinicia el servidor VPS
+pm2 save
+pm2 startup
+```
+
+### **Paso 4: Configurar Nginx como Reverse Proxy y WebSocket Gateway**
+```bash
+# Instalar Nginx y Certbot para el certificado SSL gratis
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+Crea una configuración para Nginx en `/etc/nginx/sites-available/moonlight`:
+```bash
+sudo nano /etc/nginx/sites-available/moonlight
+```
+
+Añade el siguiente bloque de configuración:
+```nginx
+server {
+    server_name tudominio.com;
+
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_http_version 1.1;
+        
+        # Cabeceras necesarias para soportar Socket.io y WebSockets en tiempo real
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Activa la configuración y recarga Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/moonlight /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### **Paso 5: Activar HTTPS Gratis con Certbot (Let's Encrypt)**
+```bash
+sudo certbot --nginx -d tudominio.com
+```
+¡Listo! Tu servidor Moonlight estará corriendo de forma segura 24/7 en HTTPS/WSS.
+
+---
+
+## 💻 Compilar la Aplicación de Escritorio (Windows y Linux)
+
+Moonlight utiliza Electron para generar ejecutables nativos de escritorio para Windows y Linux.
+
+### 🪟 Para Windows (`.exe`)
+```bash
+cd frontend
+npm run dist:win
+```
+El ejecutable comprimido se guardará en:
+`frontend/dist-electron/Moonlight-win32-x64/Moonlight.exe`
+
+---
+
+### 🐧 Para Linux (`.deb` e Instalador Binario)
+
+#### 1. Generar el Binario Ejecutable para Linux
+```bash
+cd frontend
+npm run dist:linux
+```
+Generará la carpeta ejecutable en:
+`frontend/dist-electron/Moonlight-linux-x64/Moonlight`
+
+#### 2. Generar el Paquete Instalador `.deb` (Debian / Ubuntu / Linux Mint)
+Para empaquetar la aplicación en un instalador `.deb` que los usuarios puedan instalar haciendo doble clic o usando `dpkg -i`:
+
+```bash
+# Instalar globalmente la herramienta de paquetes debian de Electron
+sudo npm install -g electron-installer-debian
+
+# Crear el paquete .deb desde la raíz del proyecto
+electron-installer-debian \
+  --src frontend/dist-electron/Moonlight-linux-x64/ \
+  --dest frontend/dist-electron/ \
+  --arch amd64 \
+  --name moonlight \
+  --productName "Moonlight"
+```
+El archivo de instalación **`moonlight_amd64.deb`** se guardará en `frontend/dist-electron/`.
+
+Para instalarlo en cualquier equipo Ubuntu/Debian:
+```bash
+sudo dpkg -i frontend/dist-electron/moonlight_amd64.deb
+```
 
 ---
 
@@ -163,20 +314,6 @@ npm run set-badges -- aether HOST_OWNER,INSTANCE_ADMIN,BUG_HUNTER
 # Quitar todas las insignias de un usuario
 npm run set-badges -- aether clear
 ```
-
----
-
-## 💻 Compilar Aplicación de Escritorio (.exe)
-
-Para empaquetar la aplicación de escritorio nativa para Windows (`Moonlight.exe`):
-
-```bash
-cd frontend
-npm run dist:win
-```
-
-El ejecutable resultante se guardará en:
-`frontend/dist-electron/Moonlight-win32-x64/Moonlight.exe`
 
 ---
 
