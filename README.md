@@ -186,12 +186,18 @@ cp .env.example .env
 ```
 
 Edita la configuración en el archivo `.env` (`nano .env`):
+
 ```env
 PORT=4000
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="un_secreto_aleatorio_y_muy_seguro_para_produccion"
 CLIENT_URL="https://tudominio.com"
 ```
+
+> 💡 **Consejo de Seguridad:** Puedes generar automáticamente una clave aleatoria y segura para copiar y pegar en `JWT_SECRET` ejecutando este comando en la consola:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
 
 ### **Paso 3: Inicializar la Base de Datos y Arrancar con PM2**
 ```bash
