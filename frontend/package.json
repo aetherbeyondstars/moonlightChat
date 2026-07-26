@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dist:win": "vite build && node ./node_modules/electron-packager/bin/electron-packager.js . Moonlight --platform=win32 --arch=x64 --out=dist-electron --overwrite --prune=false --icon=electron/icon.ico && node ./electron/build-icon.js"
+    "dist:win": "vite build && node ./node_modules/electron-packager/bin/electron-packager.js . Moonlight --platform=win32 --arch=x64 --out=dist-electron --overwrite --prune=false --icon=electron/icon.ico && node ./electron/build-icon.js",
+    "dist:linux": "vite build && node ./node_modules/electron-packager/bin/electron-packager.js . Moonlight --platform=linux --arch=x64 --out=dist-electron --overwrite --prune=false"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",
